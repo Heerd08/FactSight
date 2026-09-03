@@ -87,15 +87,15 @@ class TemporalService:
         cur_year = now_ctx["year"]
         now_dt = now_ctx["datetime"]
 
-        # 1. Leap Year Claims (e.g. "next year will be a leap year", "2026 is a leap year", "2028 is a leap year")
-        if re.search(r"\bleap\s*years?\b", text_lower):
-            if "next year" in text_lower:
+        # 1. Leap Year Claims (e.g. "next year will be a leap year", "nächstes jahr ist ein schaltjahr")
+        if re.search(r"\b(leap\s*years?|schaltjahr(e)?|ann[ée]e\s*bissextile|a[ñn]o\s*bisiesto)\b", text_lower):
+            if re.search(r"\b(next\s*year|n[äa]chstes\s*jahr|l'ann[ée]e\s*prochaine|el\s*pr[óo]ximo\s*a[ñn]o|agle\s*saal)\b", text_lower):
                 target_year = cur_year + 1
                 year_label = f"Next year ({target_year})"
-            elif "last year" in text_lower:
+            elif re.search(r"\b(last\s*year|letztes\s*jahr|l'ann[ée]e\s*derni[èe]re|el\s*a[ñn]o\s*pasado|pichle\s*saal)\b", text_lower):
                 target_year = cur_year - 1
                 year_label = f"Last year ({target_year})"
-            elif "this year" in text_lower:
+            elif re.search(r"\b(this\s*year|dieses\s*jahr|cette\s*ann[ée]e|este\s*a[ñn]o|is\s*saal)\b", text_lower):
                 target_year = cur_year
                 year_label = f"This year ({target_year})"
             else:
@@ -252,20 +252,20 @@ class TemporalService:
                             ),
                         }
 
-        # 3. Relative Date Resolution with all Synonyms (tomorrow, next day, day after today, in 2 days, etc.)
+        # 3. Relative Date Resolution with all Synonyms (tomorrow, morgen, demain, mañana, kal, etc.)
         target_offset = None
         target_label = ""
 
-        if re.search(r"\b(day\s*after\s*tomm?orr?ow|in\s*2\s*days|after\s*2\s*days|in\s*two\s*days)\b", text_lower):
+        if re.search(r"\b(day\s*after\s*tomm?orr?ow|in\s*2\s*days|after\s*2\s*days|[üu]bermorgen|pasado\s*ma[ñn]ana|apr[èe]s-demain|parson)\b", text_lower):
             target_offset = 2
             target_label = "the day after tomorrow"
-        elif re.search(r"\b(tomm?orr?ow|next\s*day|the\s*next\s*day|following\s*day|the\s*following\s*day|day\s*after\s*today|in\s*1\s*day)\b", text_lower):
+        elif re.search(r"\b(tomm?orr?ow|next\s*day|the\s*next\s*day|following\s*day|morgen|ma[ñn]ana|demain|kal)\b", text_lower):
             target_offset = 1
-            target_label = "the next day"
-        elif re.search(r"\b(yester?day|previous\s*day|the\s*previous\s*day|day\s*before\s*today|1\s*day\s*ago)\b", text_lower):
+            target_label = "tomorrow / next day"
+        elif re.search(r"\b(yester?day|previous\s*day|1\s*day\s*ago|gestern|hier|ayer)\b", text_lower):
             target_offset = -1
             target_label = "yesterday"
-        elif re.search(r"\b(today|this\s*day|present\s*day|right\s*now)\b", text_lower):
+        elif re.search(r"\b(today|this\s*day|present\s*day|right\s*now|heute|hoy|aujourd'hui|aaj)\b", text_lower):
             target_offset = 0
             target_label = "today"
 
@@ -277,18 +277,27 @@ class TemporalService:
         claimed_month_day = (claimed_dt.month, claimed_dt.day)
         claimed_weekday = claimed_dt.strftime("%A").lower()
 
-        # 4. Day of Week Claims (e.g. "next day will be saturday", "tomorrow is sunday")
-        weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-        for day_name in weekdays:
-            if re.search(r"\b" + day_name + r"\b", text_lower):
-                is_correct = (day_name == claimed_weekday)
-                claimed_desc = f"{target_label} is {day_name.capitalize()}"
+        # 4. Day of Week Claims (English, German, Spanish, French)
+        weekday_map = {
+            "monday": ["monday", "montag", "lunes", "lundi", "somwar"],
+            "tuesday": ["tuesday", "dienstag", "martes", "mardi", "mangalwar"],
+            "wednesday": ["wednesday", "mittwoch", "mi[ée]rcoles", "mercredi", "budhwar"],
+            "thursday": ["thursday", "donnerstag", "jueves", "jeudi", "guruwar"],
+            "friday": ["friday", "freitag", "viernes", "vendredi", "shukrawar"],
+            "saturday": ["saturday", "samstag", "sonnabend", "s[áa]bado", "samedi", "shaniwar"],
+            "sunday": ["sunday", "sonntag", "domingo", "dimanche", "ravivar"],
+        }
+        for day_en, aliases in weekday_map.items():
+            pattern = r"\b(" + "|".join(aliases) + r")\b"
+            if re.search(pattern, text_lower):
+                is_correct = (day_en == claimed_weekday)
+                claimed_desc = f"{target_label} is {day_en.capitalize()}"
                 actual_desc = f"{target_label} is {claimed_full}"
                 if is_correct:
                     return {
                         "is_holiday_claim": True,
                         "is_valid": True,
-                        "holiday_name": f"Day of the Week ({day_name.capitalize()})",
+                        "holiday_name": f"Day of the Week ({day_en.capitalize()})",
                         "official_date": actual_desc,
                         "claimed_date": claimed_desc,
                         "verdict": "Genuine",
@@ -303,7 +312,7 @@ class TemporalService:
                     return {
                         "is_holiday_claim": True,
                         "is_valid": False,
-                        "holiday_name": f"Day of the Week ({day_name.capitalize()})",
+                        "holiday_name": f"Day of the Week ({day_en.capitalize()})",
                         "official_date": actual_desc,
                         "claimed_date": claimed_desc,
                         "verdict": "Fake",

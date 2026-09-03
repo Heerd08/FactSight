@@ -90,12 +90,12 @@ function formatAnalysisResponse(data, rawInput, inputType) {
   };
 }
 
-async function analyzeGeneric(content, contentType) {
+async function analyzeGeneric(content, contentType, extraPayload = {}) {
   try {
     const res = await fetch(`${API_BASE_URL}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: content, content_type: contentType })
+      body: JSON.stringify({ text: content, content_type: contentType, ...extraPayload })
     });
 
     if (!res.ok) {
@@ -119,8 +119,27 @@ export async function analyzeUrl(url) {
 }
 
 export async function analyzeImage(file) {
-  const claim = file ? `Extracted image claim from file: ${file.name}` : 'Visual Claim';
-  return analyzeGeneric(claim, 'image');
+  if (!file) {
+    return analyzeGeneric('Visual Claim', 'image');
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64Data = reader.result;
+        const res = await analyzeGeneric(file.name, 'image', {
+          image_base64: base64Data,
+          mime_type: file.type || 'image/jpeg'
+        });
+        resolve(res);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
+  });
 }
 
 export async function analyzeEmail(emailContent) {

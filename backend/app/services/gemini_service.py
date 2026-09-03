@@ -31,33 +31,126 @@ class GeminiService:
     def is_available(self) -> bool:
         return bool(self.api_key)
 
+    def extract_claim_from_image(
+        self,
+        image_base64: str,
+        mime_type: str = "image/jpeg",
+        current_date_str: str = "September 04, 2026",
+    ) -> Dict[str, Any]:
+        """Use Gemini Multimodal Vision API to perform OCR and synthesize the core claim and search queries from an image."""
+        if not self.is_available():
+            return {
+                "extracted_text": "",
+                "extracted_claim": "Image claim (Gemini API unavailable)",
+                "detected_language": "English",
+                "primary_subject": "Visual Claim",
+                "search_queries": [],
+            }
+
+        # Clean base64 if it has data URL prefix
+        if "," in image_base64:
+            header, base64_data = image_base64.split(",", 1)
+            if "image/png" in header:
+                mime_type = "image/png"
+            elif "image/webp" in header:
+                mime_type = "image/webp"
+            elif "image/jpeg" in header or "image/jpg" in header:
+                mime_type = "image/jpeg"
+        else:
+            base64_data = image_base64
+
+        prompt = f"""You are FactSight's Visual Misinformation & Multimodal OCR Intelligence Agent.
+The current real-time ground truth date is: {current_date_str}.
+
+Inspect this uploaded image thoroughly:
+1. Transcribe all visible text, headlines, subtitles, watermarks, or social media overlays.
+2. Analyze any visual cues, documents, graphs, public figures, or events depicted.
+3. Synthesize the single core factual claim being asserted by or within this image into clear, normal text that can be used directly for fact-checking.
+4. Detect the primary language of the text/content in the image.
+5. Generate 2-3 clean, high-precision search queries specifically tailored for Tavily Web Search to verify the claim.
+
+Return a strict JSON object with this exact schema:
+{{
+  "extracted_text": "all transcribed text from the image",
+  "extracted_claim": "concise, normalized factual claim statement",
+  "detected_language": "English | German | Spanish | French | Hindi | etc.",
+  "primary_subject": "main entity or subject",
+  "search_queries": ["query 1", "query 2"]
+}}
+"""
+        for model_name in GEMINI_MODELS:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+                payload = {
+                    "contents": [
+                        {
+                            "parts": [
+                                {"text": prompt},
+                                {
+                                    "inline_data": {
+                                        "mime_type": mime_type,
+                                        "data": base64_data
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "generationConfig": {"response_mime_type": "application/json"}
+                }
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=20) as res:
+                    data = json.loads(res.read().decode("utf-8"))
+                    text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
+                    parsed = json.loads(text_resp)
+                    logger.info(f"Gemini image OCR ({model_name}) extracted claim: '{parsed.get('extracted_claim')}' (Language: {parsed.get('detected_language')})")
+                    return parsed
+            except Exception as e:
+                logger.warning(f"Gemini extract_claim_from_image with {model_name} failed: {e}. Trying next model...")
+                continue
+
+        logger.warning("All Gemini models failed for image claim extraction.")
+        return {
+            "extracted_text": "",
+            "extracted_claim": "Visual claim from uploaded screenshot",
+            "detected_language": "English",
+            "primary_subject": "Image Submission",
+            "search_queries": [],
+        }
+
     def analyze_and_formulate_queries(
         self,
         input_text: str,
         content_type: str = "text",
         current_date_str: str = "September 04, 2026",
     ) -> Dict[str, Any]:
-        """Use Gemini to deconstruct raw input and formulate targeted Tavily queries."""
+        """Use Gemini to deconstruct raw input, detect language, and formulate targeted Tavily queries."""
         if not self.is_available():
             return self._fallback_understanding(input_text)
 
-        prompt = f"""You are FactSight's Intelligent Claim Understanding Agent.
+        prompt = f"""You are FactSight's Multilingual Claim Understanding Agent.
 The user provided the following input (Content Type: {content_type}):
 \"\"\"{input_text}\"\"\"
 
 The current real-time ground truth date is: {current_date_str}.
 
 Analyze the input thoroughly:
-1. Extract the primary subject/entity (e.g., "Lionel Messi", "Narendra Modi", "NASA", "US President").
-2. Extract the core factual claim being asserted.
-3. Check if there are any internal logical contradictions or timeline impossibilities.
-4. Identify if it is time-sensitive (references to today, tomorrow, this week, upcoming, breaking).
-5. Generate 2-3 clean, high-precision search queries specifically designed for Tavily Web Search to find authoritative fact-checks or breaking news (avoid noise words).
+1. Detect the language of the user input (e.g. German, French, Spanish, Hindi, English, etc.).
+2. Extract the primary subject/entity (e.g., "Lionel Messi", "Narendra Modi", "NASA", "US President").
+3. Extract the core factual claim being asserted, both in its original language and translated to English for global search indexing.
+4. Check if there are any internal logical contradictions or timeline impossibilities.
+5. Identify if it is time-sensitive (references to today, tomorrow, this week, upcoming, breaking).
+6. Generate 2-3 clean, high-precision search queries specifically designed for Tavily Web Search. If the input is in a non-English language, provide both a native-language search query and an English query to maximize evidence retrieval.
 
 Return a strict JSON object with this exact schema:
 {{
+  "detected_language": "German | English | Spanish | French | Hindi | etc.",
   "primary_subject": "string",
-  "clean_claim": "string",
+  "clean_claim": "string in original language",
+  "clean_claim_english": "string translated to English",
   "is_time_sensitive": boolean,
   "logical_contradiction": boolean,
   "contradiction_explanation": "string or empty",
@@ -80,7 +173,7 @@ Return a strict JSON object with this exact schema:
                     data = json.loads(res.read().decode("utf-8"))
                     text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
                     parsed = json.loads(text_resp)
-                    logger.info(f"Gemini understanding ({model_name}) generated for subject '{parsed.get('primary_subject')}': {parsed.get('optimized_tavily_search_queries')}")
+                    logger.info(f"Gemini understanding ({model_name}) [Lang: {parsed.get('detected_language')}]: {parsed.get('optimized_tavily_search_queries')}")
                     return parsed
             except Exception as e:
                 logger.warning(f"Gemini analyze_and_formulate_queries with {model_name} failed: {e}. Trying next model...")
@@ -97,7 +190,7 @@ Return a strict JSON object with this exact schema:
         direct_answer: Optional[str] = None,
         current_date_str: str = "September 04, 2026",
     ) -> Dict[str, Any]:
-        """Use Gemini as Senior Arbiter to evaluate Tavily evidence, confirm accuracy, and distinguish Misleading vs Fake."""
+        """Use Gemini as Senior Arbiter to evaluate Tavily evidence, confirm accuracy, and generate verdicts in the user's input language."""
         if not self.is_available() or not tavily_evidence:
             return self._fallback_verdict_synthesis(claim, understanding, tavily_evidence, direct_answer)
 
@@ -107,12 +200,15 @@ Return a strict JSON object with this exact schema:
                 f"Source {i} [{ev.get('source', 'Web')}]: {ev.get('title', '')} - {ev.get('snippet', '')[:300]}"
             )
 
-        prompt = f"""You are FactSight's Senior Misinformation Arbiter & Verification Engine.
+        detected_lang = understanding.get("detected_language", "English")
+
+        prompt = f"""You are FactSight's Senior Misinformation Arbiter & Multilingual Verification Engine.
 Current ground-truth date is: {current_date_str}.
 
 User Input Claim:
 \"\"\"{claim}\"\"\"
 Subject Identified: {understanding.get('primary_subject', 'General')}
+Detected Language: {detected_lang}
 
 Tavily Live Web Search Results:
 \"\"\"
@@ -121,9 +217,10 @@ Direct Answer: {direct_answer or 'None'}
 {chr(10).join(evidence_snippets)}
 \"\"\"
 
-CRITICAL CLASSIFICATION RULES (DO NOT CONFUSE "MISLEADING" WITH "FAKE"):
-1. FIRST: Review Tavily's direct answer and retrieved sources. Confirm whether Tavily's findings are accurate, relevant, and reliable, or if Tavily is off-topic, incomplete, or misunderstanding the claim.
-2. SECOND: Evaluate the claim and classify it into EXACTLY ONE of these 4 distinct categories:
+CRITICAL CLASSIFICATION & MULTILINGUAL RULES:
+1. REVIEW TAVILY: Review Tavily's direct answer and retrieved sources. Confirm whether Tavily's findings are accurate, relevant, and reliable, or if Tavily is off-topic, incomplete, or misunderstanding the claim.
+2. CLASSIFICATION TOKENS (MUST BE IN ENGLISH):
+   Evaluate the claim and classify it into EXACTLY ONE of these 4 distinct categories (keep the token in English for UI badge rendering):
    - "Genuine" (Credibility: 85% - 99%):
      The claim is factually accurate, confirmed by authoritative records, and contains no deceit or manipulative distortion.
    - "Misleading" (Credibility: 25% - 45%):
@@ -132,8 +229,11 @@ CRITICAL CLASSIFICATION RULES (DO NOT CONFUSE "MISLEADING" WITH "FAKE"):
      The claim is completely fabricated out of thin air, a complete hoax, medical quackery with zero basis, an event that never occurred at all, or a demonstrably disproven myth.
    - "Unverified" (Credibility: 45% - 55%):
      Future political predictions, unconfirmed election speculation, subjective opinions, or claims lacking sufficient public evidence.
-3. THIRD: Identify any specific manipulation or deception technique present (e.g. "Exaggeration / Overgeneralization", "Out-of-Context Framing", "Cherry-Picking Statistics", "False Medical Remedy", "Sensationalist Framing", or "None").
-4. FOURTH: Write a multi-paragraph, evidence-grounded detailed explanation explaining WHY it is Genuine, Misleading, Fake, or Unverified, citing the authoritative findings and explicitly highlighting any distortions.
+3. MANIPULATION DETECTION: Identify any specific manipulation or deception technique present (e.g. "Exaggeration / Overgeneralization", "Out-of-Context Framing", "Cherry-Picking Statistics", "False Medical Remedy", "Sensationalist Framing", or "None").
+4. MULTILINGUAL EXPLANATION IN USER'S NATIVE LANGUAGE:
+   The user entered this claim in {detected_lang}.
+   You MUST write the entire "detailed_explanation" and all items in "key_findings" in fluent, natural, grammatically correct {detected_lang}!
+   For example, if {detected_lang} is German, write the detailed explanation and key findings entirely in German. If French, in French. If Spanish, in Spanish. If Hindi, in Hindi.
 
 Respond in strict JSON adhering to this schema:
 {{
@@ -143,8 +243,8 @@ Respond in strict JSON adhering to this schema:
   "credibility_score_pct": 35,
   "is_manipulative": true,
   "manipulation_type": "string describing technique or None",
-  "detailed_explanation": "comprehensive explanation citing findings and context",
-  "key_findings": ["point 1", "point 2", "point 3"]
+  "detailed_explanation": "comprehensive multi-paragraph explanation in the user's detected language citing findings and context",
+  "key_findings": ["point 1 in user's language", "point 2 in user's language"]
 }}
 """
         for model_name in GEMINI_MODELS:
@@ -163,7 +263,7 @@ Respond in strict JSON adhering to this schema:
                     data = json.loads(res.read().decode("utf-8"))
                     text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
                     parsed = json.loads(text_resp)
-                    logger.info(f"Gemini arbiter ({model_name}) complete: {parsed.get('classification')} ({parsed.get('credibility_score_pct')}%) - Manipulation: {parsed.get('manipulation_type')}")
+                    logger.info(f"Gemini arbiter ({model_name}) complete [{detected_lang}]: {parsed.get('classification')} ({parsed.get('credibility_score_pct')}%)")
                     return parsed
             except Exception as e:
                 logger.warning(f"Gemini synthesize_fact_check_verdict with {model_name} failed: {e}. Trying next model...")

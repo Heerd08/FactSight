@@ -163,14 +163,20 @@ class AISearchAgent:
         }
 
     def _execute_single_search(self, search_q: str, max_results: int = 3) -> Tuple[List[Dict[str, Any]], str, Optional[str]]:
-        """Perform search using Tavily API with clean query."""
-        api_key = self.api_key or os.getenv("TAVILY_API_KEY", "")
-        now_ctx = self.temporal_service.get_current_context()
+        """Execute Tavily search with multi-key failover rotation."""
+        from app.services.temporal_service import get_temporal_service
+        now_ctx = get_temporal_service().get_current_context()
 
-        if api_key:
+        keys_to_try = settings.tavily_keys
+        if not keys_to_try:
+            fallback_k = self.api_key or os.getenv("TAVILY_API_KEY", "")
+            if fallback_k:
+                keys_to_try = [fallback_k]
+
+        for idx, active_key in enumerate(keys_to_try, 1):
             try:
                 from tavily import TavilyClient
-                client = TavilyClient(api_key=api_key)
+                client = TavilyClient(api_key=active_key)
                 
                 response = client.search(
                     query=search_q,
@@ -199,9 +205,10 @@ class AISearchAgent:
                     })
 
                 if evidence:
-                    return evidence, "Tavily AI Search Engine", direct_answer
+                    return evidence, f"Tavily AI Search Engine (Key #{idx})", direct_answer
             except Exception as e:
-                logger.warning(f"Tavily search for query '{search_q}' failed: {e}")
+                logger.warning(f"Tavily search with key #{idx} for query '{search_q}' failed: {e}. Trying backup key...")
+                continue
 
         # Fallback to Open Web Search
         return self._open_web_search(search_q, max_results=max_results)

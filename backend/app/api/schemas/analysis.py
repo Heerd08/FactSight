@@ -40,6 +40,11 @@ class AnalyzeRequest(BaseModel):
         None,
         description="Base64 encoded screenshot image data for OCR extraction.",
     )
+    mime_type: Optional[str] = Field(
+        "image/jpeg",
+        description="MIME type of the uploaded image file.",
+    )
+
 
 
 class EvidenceItem(BaseModel):

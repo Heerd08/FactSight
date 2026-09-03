@@ -38,7 +38,18 @@ class Settings:
     MODEL_PATH: str = os.getenv("MODEL_PATH", "microsoft/deberta-v3-base")
     MODEL_VERSION: str = os.getenv("MODEL_VERSION", "rag-gemini-tavily-v2")
     TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
+    TAVILY_API_KEY_BACKUP: str = os.getenv("TAVILY_API_KEY_BACKUP", "")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+
+    @property
+    def tavily_keys(self) -> list[str]:
+        """Return list of active Tavily API keys for automatic failover rotation."""
+        keys = []
+        if self.TAVILY_API_KEY:
+            keys.append(self.TAVILY_API_KEY)
+        if self.TAVILY_API_KEY_BACKUP and self.TAVILY_API_KEY_BACKUP not in keys:
+            keys.append(self.TAVILY_API_KEY_BACKUP)
+        return keys
 
     # Database — use safe path to avoid SQLite issues with OneDrive/virtualized folders
     DATABASE_URL: str = os.getenv("DATABASE_URL", _DEFAULT_DB_URL)

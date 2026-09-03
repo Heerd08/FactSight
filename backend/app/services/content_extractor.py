@@ -215,17 +215,36 @@ class ContentExtractor:
         }
 
     def extract_from_image(self, text_or_filename: str, image_base64: Optional[str] = None) -> Dict[str, Any]:
-        """Process screenshot image submissions and extract claim."""
-        # Clean extracted OCR text or prompt
+        """Process screenshot image submissions and extract claim via Gemini Multimodal Vision."""
         claim = text_or_filename.strip() if text_or_filename else "Screenshot image claim"
+        metadata = {
+            "has_image_data": bool(image_base64),
+            "image_filename": text_or_filename,
+        }
+
+        if image_base64:
+            try:
+                from app.services.gemini_service import get_gemini_service
+                gemini_service = get_gemini_service()
+                if gemini_service.is_available():
+                    ocr_res = gemini_service.extract_claim_from_image(image_base64)
+                    extracted_claim = ocr_res.get("extracted_claim", "").strip()
+                    if extracted_claim:
+                        claim = extracted_claim
+                    metadata.update({
+                        "extracted_ocr_text": ocr_res.get("extracted_text", ""),
+                        "detected_language": ocr_res.get("detected_language", "English"),
+                        "primary_subject": ocr_res.get("primary_subject", ""),
+                        "gemini_search_queries": ocr_res.get("search_queries", []),
+                    })
+                    logger.info(f"Successfully converted uploaded image to text claim via Gemini: '{claim}'")
+            except Exception as e:
+                logger.warning(f"Failed to extract claim from image via Gemini: {e}")
 
         return {
             "claim_text": claim,
             "modality": "image",
-            "metadata": {
-                "has_image_data": bool(image_base64),
-                "image_filename": text_or_filename,
-            },
+            "metadata": metadata,
         }
 
 
