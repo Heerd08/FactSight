@@ -16,54 +16,56 @@ export default function EmailInput({ onAnalyze, isLoading }) {
     });
   };
 
+  const handleClear = () => {
+    setEmailText('');
+    setSender('');
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-3">
-        {/* Sender optional header */}
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 flex items-center gap-2 text-xs focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all shadow-2xs">
-          <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+        {/* Optional Sender Field */}
+        <div className="flex items-center px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all shadow-2xs">
+          <Mail className="w-4 h-4 text-slate-400 mr-2.5 shrink-0" />
           <input
             type="text"
             value={sender}
             onChange={(e) => setSender(e.target.value)}
-            placeholder="Sender address or domain (optional, e.g. alerts@bank-support.co)"
-            className="w-full text-slate-800 placeholder-slate-400 bg-transparent border-none focus:outline-none text-xs sm:text-sm"
+            placeholder="Sender address (e.g., alerts@bank-security-notice.com) [Optional]"
+            className="w-full text-xs sm:text-sm text-slate-800 placeholder-slate-400 bg-transparent border-none focus:outline-none"
           />
         </div>
 
-        {/* Email body textarea */}
+        {/* Email Body */}
         <div className="relative rounded-2xl border border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all shadow-2xs">
           <textarea
+            rows={5}
             value={emailText}
             onChange={(e) => setEmailText(e.target.value)}
-            placeholder="Paste the email content you want to verify..."
-            rows={6}
-            className="w-full p-4 sm:p-5 text-sm sm:text-base text-slate-800 placeholder-slate-400 bg-transparent rounded-2xl border-none focus:outline-none resize-y min-h-[160px]"
+            placeholder="Paste raw email body, suspicious newsletters, urgent account alerts, or investment solicitations..."
+            className="w-full p-4 sm:p-5 text-sm sm:text-base text-slate-800 placeholder-slate-400 bg-transparent border-none focus:outline-none resize-none"
           />
 
-          <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl text-xs text-slate-500">
-            <div className="flex items-center gap-2">
-              {emailText.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setEmailText('')}
-                  className="flex items-center gap-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Clear</span>
-                </button>
-              )}
-            </div>
-            <span className="text-slate-400">{emailText.length} characters</span>
+          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50/60 rounded-b-2xl border-t border-slate-100 text-xs text-slate-400">
+            <span>Evaluates phishing indicators & urgency pressure</span>
+            {emailText && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
-          <ShieldAlert className="w-3.5 h-3.5 text-slate-400" />
-          <span>Detects phishing phrasing, forged sender claims, urgency hooks, and malicious links.</span>
-        </div>
+        <span className="text-xs text-slate-400">
+          FactSight checks spoofed sender domains, social-engineering tactics, and fraudulent requests.
+        </span>
 
         <Button
           type="submit"
@@ -75,7 +77,7 @@ export default function EmailInput({ onAnalyze, isLoading }) {
           isLoading={isLoading}
           className="w-full sm:w-auto shadow-md shadow-indigo-500/20"
         >
-          Analyze Email
+          Verify Email
         </Button>
       </div>
     </form>

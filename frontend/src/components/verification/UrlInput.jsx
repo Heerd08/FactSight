@@ -12,8 +12,8 @@ export default function UrlInput({ onAnalyze, isLoading }) {
 
     // Basic URL validation
     const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/i;
-    if (!urlPattern.test(url.trim()) && !url.startsWith('http')) {
-      setError('Please enter a valid web URL (e.g. https://news-source.com/article)');
+    if (!urlPattern.test(url.trim())) {
+      setError('Please enter a valid article or webpage URL.');
       return;
     }
 
@@ -34,7 +34,7 @@ export default function UrlInput({ onAnalyze, isLoading }) {
                 setUrl(e.target.value);
                 if (error) setError('');
               }}
-              placeholder="Paste the article or website URL..."
+              placeholder="https://example.com/news-article-or-report..."
               className="w-full text-sm sm:text-base text-slate-800 placeholder-slate-400 bg-transparent border-none focus:outline-none"
             />
             {url && (
@@ -59,7 +59,7 @@ export default function UrlInput({ onAnalyze, isLoading }) {
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
         <span className="text-xs text-slate-400">
-          FactSight will crawl the webpage, extract primary claims, and evaluate publisher trustworthiness.
+          FactSight extracts main claims, compares reporting against primary sources, and assesses domain reputation.
         </span>
 
         <Button
@@ -72,7 +72,7 @@ export default function UrlInput({ onAnalyze, isLoading }) {
           isLoading={isLoading}
           className="w-full sm:w-auto shadow-md shadow-indigo-500/20"
         >
-          Analyze URL
+          Analyze Article
         </Button>
       </div>
     </form>

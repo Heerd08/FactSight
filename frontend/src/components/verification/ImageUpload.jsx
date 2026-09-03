@@ -12,7 +12,9 @@ export default function ImageUpload({ onAnalyze, isLoading }) {
     if (!selectedFile || !selectedFile.type.startsWith('image/')) return;
     setFile(selectedFile);
     const reader = new FileReader();
-    reader.onload = () => setPreview(reader.result);
+    reader.onloadend = () => {
+      setPreview(reader.result);
+    };
     reader.readAsDataURL(selectedFile);
   };
 

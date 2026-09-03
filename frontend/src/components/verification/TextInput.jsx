@@ -20,40 +20,37 @@ export default function TextInput({ onAnalyze, isLoading }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="relative rounded-2xl border border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all shadow-2xs">
         <textarea
+          rows={5}
           value={text}
           onChange={(e) => setText(e.target.value.slice(0, maxChars))}
-          placeholder="Paste the text or claim you want to verify..."
-          rows={6}
-          className="w-full p-4 sm:p-5 text-sm sm:text-base text-slate-800 placeholder-slate-400 bg-transparent rounded-2xl border-none focus:outline-none resize-y min-h-[160px]"
+          placeholder="Paste news text, a viral claim, quote, or paragraph to evaluate credibility and retrieve verified fact-checks..."
+          className="w-full p-4 sm:p-5 text-sm sm:text-base text-slate-800 placeholder-slate-400 bg-transparent border-none focus:outline-none resize-none"
         />
 
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl text-xs text-slate-500">
+        <div className="flex items-center justify-between px-4 py-3 bg-slate-50/60 rounded-b-2xl border-t border-slate-100 text-xs text-slate-400">
           <div className="flex items-center gap-2">
-            {text.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClear}
-                className="flex items-center gap-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                title="Clear text"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Clear</span>
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className={`font-mono text-xs ${text.length > maxChars * 0.9 ? 'text-amber-600 font-semibold' : 'text-slate-400'}`}>
-              {text.length} / {maxChars}
+            <span className={text.length > maxChars * 0.9 ? 'text-amber-600 font-semibold' : ''}>
+              {text.length} / {maxChars} characters
             </span>
           </div>
+
+          {text && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear</span>
+            </button>
+          )}
         </div>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
-          <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-          <span>Tip: Include direct quotes, factual statistics, or news excerpts for highest accuracy.</span>
+        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <HelpCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <span>FactSight cross-references DeBERTa classification with live RAG vector search.</span>
         </div>
 
         <Button
@@ -66,7 +63,7 @@ export default function TextInput({ onAnalyze, isLoading }) {
           isLoading={isLoading}
           className="w-full sm:w-auto shadow-md shadow-indigo-500/20"
         >
-          Analyze Content
+          Verify Content
         </Button>
       </div>
     </form>
