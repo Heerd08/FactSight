@@ -40,6 +40,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('text');
   const [isLoading, setIsLoading] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
+  const [analysisResult, setAnalysisResult] = useState(null);
   const [apiNotice, setApiNotice] = useState('');
 
   // Handle Analysis trigger
@@ -69,30 +70,29 @@ export default function Dashboard() {
           result = await analyzeText(data.content);
       }
 
-      // Simulate a realistic processing delay for smooth UX transition
-      setTimeout(() => {
-        setIsLoading(false);
-        setSubmittedData(data);
-        setApiNotice('Analysis complete — connect your backend API to display the real verification result.');
+      setIsLoading(false);
+      setSubmittedData(data);
+      setAnalysisResult(result);
+      setApiNotice(`Analysis complete via FactSight AI engine (Credibility: ${result.credibilityScore}/100 • ${result.classification})`);
 
-        // Save submitted item to session storage so /results page can access context
-        const sessionPayload = {
-          type: data.type,
-          content: data.content || data.fileName || 'Submitted content',
-          preview: data.preview || null,
-          fileName: data.fileName || null,
-          sender: data.sender || null,
-          submittedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'ready_for_backend'
-        };
-        sessionStorage.setItem('last_verification', JSON.stringify(sessionPayload));
+      // Merge user submission details with live report and store in sessionStorage
+      const sessionPayload = {
+        ...result,
+        type: data.type || result.type || 'text',
+        content: data.content || data.fileName || result.inputPreview || 'Submitted content',
+        preview: data.preview || null,
+        fileName: data.fileName || null,
+        sender: data.sender || null,
+        submittedAt: result.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'completed'
+      };
+      sessionStorage.setItem('last_verification', JSON.stringify(sessionPayload));
 
-        // Navigate to /results after a moment or scroll to results section
-        const resultsEl = document.getElementById('results-section');
-        if (resultsEl) {
-          resultsEl.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 1200);
+      // Scroll to results section smoothly
+      const resultsEl = document.getElementById('results-section');
+      if (resultsEl) {
+        resultsEl.scrollIntoView({ behavior: 'smooth' });
+      }
     } catch (err) {
       setIsLoading(false);
       console.error('Verification error:', err);
@@ -216,10 +216,11 @@ export default function Dashboard() {
             </span>
           </div>
 
-          {submittedData && (
+          {analysisResult && (
             <button
               onClick={() => {
                 setSubmittedData(null);
+                setAnalysisResult(null);
                 setApiNotice('');
               }}
               className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 font-medium cursor-pointer"
@@ -231,7 +232,7 @@ export default function Dashboard() {
         </div>
 
         {/* Empty State before submission */}
-        {!submittedData && !isLoading && (
+        {!analysisResult && !isLoading && (
           <Card className="border-dashed border-slate-300/80 bg-white/60">
             <div className="py-12 px-4 text-center max-w-md mx-auto">
               <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 mx-auto mb-4 shadow-2xs">
@@ -255,83 +256,42 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {/* Card 1: Credibility Score */}
           <CredibilityScore
-            score={submittedData ? 85 : null}
-            isPreview={!submittedData}
+            score={analysisResult ? analysisResult.credibilityScore : null}
+            isPreview={!analysisResult}
           />
 
           {/* Card 2: Classification */}
           <Classification
-            classification={submittedData ? 'Genuine' : null}
+            classification={analysisResult ? analysisResult.classification : null}
           />
 
           {/* Card 3: Evidence (Mini summary for dashboard) */}
           <EvidenceSection
-            evidence={submittedData ? [
-              { id: '1', sourceName: 'Reuters Fact Check', relevanceScore: 94 },
-              { id: '2', sourceName: 'Associated Press News', relevanceScore: 89 },
-              { id: '3', sourceName: 'ScienceDirect Archive', relevanceScore: 82 },
-            ] : []}
+            evidence={analysisResult?.evidence || []}
             isDashboardMini={true}
           />
 
           {/* Card 4: Source Trust */}
           <SourceTrust
-            sourceTrust={submittedData ? {
-              reputation: 'High',
-              attribution: 'High',
-              publicationDate: 'Verified',
-              evidenceQuality: 'High'
-            } : null}
+            sourceTrust={analysisResult?.sourceTrust || null}
           />
 
           {/* Card 5: AI Explanation (Spans 2 columns on lg screens) */}
           <div className="lg:col-span-2">
             <AIExplanation
-              explanation={submittedData ? {
-                mainClaim: typeof submittedData.content === 'string' ? submittedData.content.slice(0, 120) : 'Uploaded Media Claim',
-                scoreRationale: 'Strong corroboration found across multiple high-trust journalistic and primary research archives with zero contradictory redactions.',
-                supportingEvidence: [
-                  'Consistent with primary findings documented in official peer-reviewed publications.',
-                  'Direct quotations match publicly recorded press conferences and official transcripts.'
-                ],
-                contradictingEvidence: [],
-                sourceQualityAssessment: 'Publishing domain maintains transparent editorial corrections policy and identifiable accredited journalist bylines.'
-              } : null}
+              explanation={analysisResult?.aiExplanation || null}
             />
           </div>
         </div>
 
         {/* Key Takeaway Card */}
         <KeyTakeaway
-          takeaway={submittedData ? 'The evaluated claim is substantiated by verifiable primary sources and corroborated across high-credibility news organizations.' : null}
+          takeaway={analysisResult?.keyTakeaway || null}
         />
 
         {/* Top Evidence Detailed Section */}
         <EvidenceSection
-          evidence={submittedData ? [
-            {
-              id: '1',
-              sourceName: 'Reuters Fact Check',
-              sourceDomain: 'reuters.com',
-              title: 'Independent confirmation of reported statements and statistical findings',
-              description: 'Public archival records and interview transcripts confirm key timeline elements described in the analyzed claim.',
-              relevanceScore: 94,
-              trustRating: 'High',
-              url: 'https://reuters.com',
-              publishDate: 'September 2026'
-            },
-            {
-              id: '2',
-              sourceName: 'Associated Press News',
-              sourceDomain: 'apnews.com',
-              title: 'Primary investigation and photographic corroboration',
-              description: 'Associated Press reporters verified context and corroborated quotes directly with regional representatives.',
-              relevanceScore: 89,
-              trustRating: 'High',
-              url: 'https://apnews.com',
-              publishDate: 'September 2026'
-            }
-          ] : []}
+          evidence={analysisResult?.evidence || []}
           isDashboardMini={false}
         />
 

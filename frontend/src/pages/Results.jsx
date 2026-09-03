@@ -182,23 +182,19 @@ export default function Results() {
 
       {/* Key Takeaway Card */}
       <KeyTakeaway
-        takeaway="The submitted content is evaluated as authentic with strong multi-source corroboration and high journalistic attribution across primary documentation."
+        takeaway={data.keyTakeaway || "The submitted content is evaluated based on multi-source verification and forensic AI analysis."}
       />
 
       {/* 5 Core Result Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        <CredibilityScore score={85} />
-        <Classification classification="Genuine" />
+        <CredibilityScore score={data.credibilityScore !== undefined ? data.credibilityScore : 50} />
+        <Classification classification={data.classification || "Misleading"} />
         <EvidenceSection
-          evidence={[
-            { id: '1', sourceName: 'Reuters Fact Check', relevanceScore: 94 },
-            { id: '2', sourceName: 'Associated Press News', relevanceScore: 89 },
-            { id: '3', sourceName: 'ScienceDirect Archive', relevanceScore: 82 },
-          ]}
+          evidence={data.evidence && data.evidence.length > 0 ? data.evidence : []}
           isDashboardMini={true}
         />
         <SourceTrust
-          sourceTrust={{
+          sourceTrust={data.sourceTrust || {
             reputation: 'High',
             attribution: 'High',
             publicationDate: 'Verified',
@@ -208,15 +204,12 @@ export default function Results() {
 
         <div className="lg:col-span-2">
           <AIExplanation
-            explanation={{
-              mainClaim: typeof data.content === 'string' ? data.content.slice(0, 140) : 'Uploaded Verification Asset',
-              scoreRationale: 'Strong empirical backing confirmed across accredited databases with consistent timestamps and explicit institutional authorship.',
-              supportingEvidence: [
-                'Primary research papers confirm key statistical milestones and verified measurements.',
-                'Official spokesperson statements directly align with stated timeline sequences.'
-              ],
+            explanation={data.aiExplanation || {
+              mainClaim: typeof data.content === 'string' ? data.content.slice(0, 140) : 'Verification Asset',
+              scoreRationale: data.summary || 'Empirical evaluation performed by FactSight AI.',
+              supportingEvidence: [],
               contradictingEvidence: [],
-              sourceQualityAssessment: 'Verified domain with transparent editorial accountability standards and zero active dispute flags.'
+              sourceQualityAssessment: 'Verified against authoritative fact-checking and scientific records.'
             }}
           />
         </div>
@@ -224,73 +217,31 @@ export default function Results() {
 
       {/* In-depth Evidence List */}
       <EvidenceSection
-        evidence={[
-          {
-            id: '1',
-            sourceName: 'Reuters Fact Check',
-            sourceDomain: 'reuters.com',
-            title: 'Independent confirmation of reported statements and statistical findings',
-            description: 'Public archival records and interview transcripts confirm key timeline elements described in the analyzed claim.',
-            relevanceScore: 94,
-            trustRating: 'High',
-            url: 'https://reuters.com',
-            publishDate: 'September 2026'
-          },
-          {
-            id: '2',
-            sourceName: 'Associated Press News',
-            sourceDomain: 'apnews.com',
-            title: 'Primary investigation and photographic corroboration',
-            description: 'Associated Press reporters verified context and corroborated quotes directly with regional representatives.',
-            relevanceScore: 89,
-            trustRating: 'High',
-            url: 'https://apnews.com',
-            publishDate: 'September 2026'
-          },
-          {
-            id: '3',
-            sourceName: 'ScienceDirect Repository',
-            sourceDomain: 'sciencedirect.com',
-            title: 'Peer-reviewed comparative analysis and empirical data tables',
-            description: 'Methodology and scientific controls corroborated in registered open-access registry.',
-            relevanceScore: 82,
-            trustRating: 'High',
-            url: 'https://sciencedirect.com',
-            publishDate: 'August 2026'
-          }
-        ]}
+        evidence={data.evidence && data.evidence.length > 0 ? data.evidence : []}
         isDashboardMini={false}
       />
 
       {/* Claim Breakdown */}
       <ClaimBreakdown
-        claims={[
+        claims={data.claimsBreakdown && data.claimsBreakdown.length > 0 ? data.claimsBreakdown : [
           {
-            claimText: 'Primary asserted hypothesis and verifiable timeline',
-            verdict: 'Supported',
-            confidence: 96
-          },
-          {
-            claimText: 'Secondary statistical metrics and quantitative percentages',
-            verdict: 'Supported',
-            confidence: 91
-          },
-          {
-            claimText: 'Attributed third-party quote context',
-            verdict: 'Supported',
-            confidence: 88
+            claimText: typeof data.content === 'string' ? data.content.slice(0, 120) : 'Evaluated submission',
+            verdict: data.credibilityScore >= 75 ? 'Supported' : data.credibilityScore <= 35 ? 'Contradicted' : 'Unverified',
+            confidence: data.credibilityScore || 85
           }
         ]}
       />
 
       {/* Manipulation Indicators & Missing Context Side-by-Side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <ManipulationIndicators indicators={[]} />
+        <ManipulationIndicators indicators={data.manipulationIndicators || []} />
         <MissingContext
-          contextItems={[
-            'Historical context from 2024 provides additional background on initial research trials.',
-            'Regional variances in standard reporting conventions apply to international comparison tables.'
-          ]}
+          contextItems={data.aiExplanation?.missingContext && data.aiExplanation.missingContext.length > 0
+            ? data.aiExplanation.missingContext
+            : [
+                'FactSight cross-references against both verified Kaggle benchmarks and real-time LLM knowledge.',
+                'Claims should be independently verified before making critical medical, financial, or legal decisions.'
+              ]}
         />
       </div>
 
