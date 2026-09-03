@@ -1,28 +1,55 @@
 @import "tailwindcss";
 
+@theme {
+  --color-space-cadet: #25344F;
+  --color-slate-gray: #617891;
+  --color-tan: #D5B893;
+  --color-coffee: #6F4D38;
+  --color-caput-mortuum: #632024;
+  
+  --font-heading: "Playfair Display", serif;
+  --font-body: "Inter", sans-serif;
+}
+
 @layer base {
   :root {
-    --bg-main: #F8F9FD;
-    --card-bg: #FFFFFF;
-    --border-subtle: #E8EBF3;
-    --primary: #6366F1;
-    --primary-hover: #4F46E5;
-    --primary-light: #EEF2FF;
-    --text-main: #0F172A;
-    --text-muted: #64748B;
-  }
-
-  * {
-    border-color: #E2E8F0;
+    --space-cadet: #25344F;
+    --slate-gray: #617891;
+    --tan: #D5B893;
+    --coffee: #6F4D38;
+    --caput-mortuum: #632024;
+    
+    --bg-main: var(--space-cadet);
+    --text-main: #FFFFFF;
+    --text-muted: var(--slate-gray);
+    --border-subtle: rgba(213, 184, 147, 0.25);
   }
 
   body {
-    background-color: #F8F9FD;
-    color: #0F172A;
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--space-cadet);
+    background-image: radial-gradient(
+      circle at top right,
+      rgba(213,184,147,0.12),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at bottom left,
+      rgba(97,120,145,0.08),
+      transparent 50%
+    );
+    color: var(--text-main);
+    font-family: var(--font-body);
     margin: 0;
     padding: 0;
     overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-heading {
+    font-family: var(--font-heading);
+  }
+
+  * {
+    border-color: var(--border-subtle);
   }
 
   #root {
@@ -44,28 +71,25 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: var(--slate-gray);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: var(--tan);
 }
 
 /* Smooth glassmorphism and card animations */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(37, 52, 79, 0.85); /* space-cadet with opacity */
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-}
-
-.soft-shadow {
-  box-shadow: 0 4px 20px -2px rgba(99, 102, 241, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border-subtle);
 }
 
 .card-hover {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .card-hover:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.08), 0 4px 10px -2px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(213, 184, 147, 0.15), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
 }

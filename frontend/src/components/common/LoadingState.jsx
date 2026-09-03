@@ -1,39 +1,99 @@
-import React from 'react';
-import { Sparkles, ShieldCheck, Search, Database } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, ShieldCheck, Database, Cpu, Globe2, Activity, CheckCircle2 } from 'lucide-react';
 
 export default function LoadingState({
-  title = 'FactSight AI is verifying content...',
-  message = 'Scanning sources, evaluating claim consistency, and compiling evidence breakdown.',
+  title = 'INITIATING INVESTIGATION',
+  message = 'Executing verification sequence through FactSight intelligence network.',
 }) {
+  const [activeStep, setActiveStep] = useState(0);
+
+  const steps = [
+    { label: 'USER INPUT', icon: Globe2 },
+    { label: 'REACT FRONTEND', icon: Activity },
+    { label: 'BACKEND API', icon: Database },
+    { label: 'ML / AI MODEL', icon: Cpu },
+    { label: 'SOURCE + EVIDENCE CHECKING', icon: SearchIcon },
+    { label: 'CREDIBILITY SCORE', icon: Sparkles },
+    { label: 'FRONTEND RESULT', icon: CheckCircle2 }
+  ];
+
+  // Helper icon for search since it's not imported directly in the array
+  function SearchIcon(props) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+    );
+  }
+
+  useEffect(() => {
+    // Simulate progression through the architecture flow
+    const interval = setInterval(() => {
+      setActiveStep(prev => (prev < steps.length - 1 ? prev + 1 : prev));
+    }, 400); // Progress every 400ms
+
+    return () => clearInterval(interval);
+  }, [steps.length]);
+
   return (
-    <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-indigo-100 shadow-sm text-center">
-      <div className="relative mb-6">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 animate-pulse">
-          <Sparkles className="w-8 h-8 animate-spin" style={{ animationDuration: '4s' }} />
+    <div className="flex flex-col items-center justify-center p-12 bg-space-cadet/50 rounded-2xl border border-slate-gray/30 shadow-2xl relative overflow-hidden text-center">
+      {/* Background Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-tan/5 blur-[100px] rounded-full pointer-events-none" />
+
+      <div className="relative mb-8 z-10">
+        <div className="w-16 h-16 rounded-2xl bg-tan/10 border border-tan/30 flex items-center justify-center text-tan shadow-[0_0_15px_rgba(213,184,147,0.2)]">
+          <ShieldCheck className="w-8 h-8 animate-pulse" />
         </div>
-        <span className="absolute -top-1 -right-1 flex h-4 w-4">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-4 w-4 bg-indigo-500"></span>
-        </span>
+        <div className="absolute -inset-2 border border-tan/20 rounded-2xl animate-[spin_4s_linear_infinite]" />
       </div>
 
-      <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
-      <p className="text-sm text-slate-500 max-w-md leading-relaxed mb-6">{message}</p>
+      <h3 className="text-lg font-heading font-bold text-white tracking-widest mb-2 z-10">{title}</h3>
+      <p className="text-xs text-slate-gray max-w-md leading-relaxed mb-10 uppercase tracking-widest z-10">{message}</p>
 
-      {/* Verification Steps Indicator */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg">
-        <div className="flex items-center gap-2.5 px-3 py-2 bg-indigo-50/50 rounded-xl border border-indigo-100/60 text-xs text-indigo-700 font-medium">
-          <Search className="w-3.5 h-3.5 animate-bounce" />
-          <span>Searching sources</span>
-        </div>
-        <div className="flex items-center gap-2.5 px-3 py-2 bg-indigo-50/50 rounded-xl border border-indigo-100/60 text-xs text-indigo-700 font-medium">
-          <Database className="w-3.5 h-3.5 animate-pulse" />
-          <span>Cross-referencing</span>
-        </div>
-        <div className="flex items-center gap-2.5 px-3 py-2 bg-indigo-50/50 rounded-xl border border-indigo-100/60 text-xs text-indigo-700 font-medium">
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>Scoring trust</span>
-        </div>
+      {/* Architecture Flow Pipeline */}
+      <div className="flex flex-col w-full max-w-md gap-3 z-10">
+        {steps.map((step, index) => {
+          const Icon = step.icon;
+          const isActive = index === activeStep;
+          const isPast = index < activeStep;
+
+          let bgClass = 'bg-slate-gray/5 border-slate-gray/10';
+          let textClass = 'text-slate-gray/50';
+          let iconClass = 'text-slate-gray/30';
+
+          if (isPast) {
+            bgClass = 'bg-slate-gray/20 border-slate-gray/40';
+            textClass = 'text-white';
+            iconClass = 'text-slate-gray';
+          } else if (isActive) {
+            bgClass = 'bg-tan/10 border-tan/40 shadow-[0_0_10px_rgba(213,184,147,0.2)]';
+            textClass = 'text-tan font-bold';
+            iconClass = 'text-tan animate-pulse';
+          }
+
+          return (
+            <div key={step.label} className={`flex items-center gap-4 p-3 rounded-xl border transition-all duration-300 ${bgClass}`}>
+              <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
+                <Icon className={`w-4 h-4 ${iconClass}`} />
+              </div>
+              <div className="flex-1 text-left">
+                <span className={`text-[10px] uppercase tracking-widest ${textClass}`}>
+                  {step.label}
+                </span>
+              </div>
+              <div className="shrink-0">
+                {isPast ? (
+                  <CheckCircle2 className="w-4 h-4 text-tan" />
+                ) : isActive ? (
+                  <div className="w-1.5 h-1.5 rounded-full bg-tan animate-ping mr-1" />
+                ) : (
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-gray/20 mr-1" />
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

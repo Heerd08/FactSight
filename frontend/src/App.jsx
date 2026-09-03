@@ -1,7 +1,8 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Landing from './pages/Landing'
+import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Verify from './pages/Verify'
 import Results from './pages/Results'
 import History from './pages/History'
 import SavedReports from './pages/SavedReports'
@@ -10,16 +11,30 @@ import HowItWorks from './pages/HowItWorks'
 import Settings from './pages/Settings'
 import DashboardLayout from './components/layout/DashboardLayout'
 
+// Simple frontend auth wrapper
+const ProtectedRoute = ({ children }) => {
+  const session = localStorage.getItem('factsight_session');
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Landing Page */}
-        <Route path="/" element={<Landing />} />
+        {/* Public Route */}
+        <Route path="/login" element={<Login />} />
 
         {/* Dashboard and App Shell Routes */}
-        <Route element={<DashboardLayout />}>
+        <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/verify" element={<Verify />} />
+          <Route path="/investigations" element={<History />} />
+          <Route path="/insights" element={<SourceInsights />} />
+          
+          {/* Kept existing routes to prevent broken links */}
           <Route path="/results" element={<Results />} />
           <Route path="/history" element={<History />} />
           <Route path="/saved-reports" element={<SavedReports />} />
@@ -28,8 +43,8 @@ function App() {
           <Route path="/settings" element={<Settings />} />
         </Route>
 
-        {/* Fallback to Landing */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Fallback to Login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   )
