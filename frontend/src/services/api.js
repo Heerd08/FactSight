@@ -26,11 +26,20 @@ function formatAnalysisResponse(data, rawInput, inputType) {
     publishDate: e.published_date || 'Verified Record'
   }));
 
-  const manipulationIndicators = (data.manipulation_indicators || []).map((m) => ({
-    type: m.category || 'Linguistic Pattern',
-    severity: m.severity || 'Medium',
-    description: m.description || 'Pattern flagged by AI detector.'
-  }));
+  const manipulationIndicators = (data.manipulation_indicators || []).map((m) => {
+    if (typeof m === 'string') {
+      return {
+        type: m,
+        severity: (data.classification === 'Fake' || data.classification === 'Misleading') ? 'High' : 'Medium',
+        description: `Identified by Gemini Verification Arbiter: ${m}`
+      };
+    }
+    return {
+      type: m.category || m.type || 'Linguistic Pattern',
+      severity: m.severity || 'Medium',
+      description: m.description || 'Pattern flagged by AI detector.'
+    };
+  });
 
   const mainClaim = data.main_claim || (typeof rawInput === 'string' ? rawInput.slice(0, 160) : 'Content Claim');
   const explanationText = data.detailed_explanation || (reasons.length > 0 ? reasons.join('. ') : `This claim is evaluated as ${data.classification || 'Unverified'}.`);

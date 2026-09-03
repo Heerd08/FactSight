@@ -96,13 +96,18 @@ class AnalysisService:
             EvidenceItem(**src) for src in raw_sources
         ]
 
-        # Step 4: Adopt Gemini Dual-AI Verdict or fallback to Credibility Service
         if evidence_result.get("detailed_explanation") and evidence_result.get("credibility_score_pct") is not None:
             classification = evidence_result["classification"]
             confidence = float(evidence_result["confidence"])
             credibility_score_pct = int(evidence_result["credibility_score_pct"])
             credibility_score = max(1, min(10, round(credibility_score_pct / 10.0)))
             detailed_explanation = evidence_result["detailed_explanation"]
+
+            # Incorporate Gemini detected manipulation technique
+            gemini_manip = evidence_result.get("manipulation_type")
+            if gemini_manip and gemini_manip.lower() not in ["none", "n/a"]:
+                if gemini_manip not in manipulation_indicators:
+                    manipulation_indicators.append(gemini_manip)
         else:
             classification, confidence = self.credibility_service.evaluate_rag_classification(
                 evidence_status=evidence_status,

@@ -158,6 +158,8 @@ class AISearchAgent:
             "temporal_grounding": now_ctx["formatted_date"],
             "primary_subject": primary_subject,
             "gemini_understanding": gemini_understanding,
+            "manipulation_type": synthesis_result.get("manipulation_type"),
+            "tavily_verification": synthesis_result.get("tavily_verification"),
         }
 
     def _execute_single_search(self, search_q: str, max_results: int = 3) -> Tuple[List[Dict[str, Any]], str, Optional[str]]:

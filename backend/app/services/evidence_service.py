@@ -63,6 +63,8 @@ class EvidenceService:
             "classification": agent_verdict,
             "confidence": agent_confidence,
             "gemini_understanding": agent_result.get("gemini_understanding"),
+            "manipulation_type": agent_result.get("manipulation_type"),
+            "tavily_verification": agent_result.get("tavily_verification"),
         }
 
 

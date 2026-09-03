@@ -19,11 +19,11 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_MODELS = ["gemini-flash-lite-latest", "gemini-flash-latest"]
 
 
 class GeminiService:
-    """Intelligent agent that deconstructs claims and reasons over live evidence using Gemini API."""
+    """Intelligent agent that deconstructs claims, evaluates Tavily evidence, and delivers authoritative verdicts."""
 
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
@@ -37,7 +37,7 @@ class GeminiService:
         content_type: str = "text",
         current_date_str: str = "September 04, 2026",
     ) -> Dict[str, Any]:
-        """Use Gemini 3.5 Flash to deconstruct raw input and formulate targeted Tavily queries."""
+        """Use Gemini to deconstruct raw input and formulate targeted Tavily queries."""
         if not self.is_available():
             return self._fallback_understanding(input_text)
 
@@ -50,7 +50,7 @@ The current real-time ground truth date is: {current_date_str}.
 Analyze the input thoroughly:
 1. Extract the primary subject/entity (e.g., "Lionel Messi", "Narendra Modi", "NASA", "US President").
 2. Extract the core factual claim being asserted.
-3. Check if there are any internal logical contradictions or timeline impossibilities (e.g. saying an event will happen tomorrow and also happened last week).
+3. Check if there are any internal logical contradictions or timeline impossibilities.
 4. Identify if it is time-sensitive (references to today, tomorrow, this week, upcoming, breaking).
 5. Generate 2-3 clean, high-precision search queries specifically designed for Tavily Web Search to find authoritative fact-checks or breaking news (avoid noise words).
 
@@ -64,26 +64,30 @@ Return a strict JSON object with this exact schema:
   "optimized_tavily_search_queries": ["query 1", "query 2"]
 }}
 """
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={self.api_key}"
-            payload = {
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"responseMimeType": "application/json"}
-            }
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"}
-            )
-            with urllib.request.urlopen(req, timeout=8) as res:
-                data = json.loads(res.read().decode("utf-8"))
-                text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
-                parsed = json.loads(text_resp)
-                logger.info(f"Gemini understanding generated for subject '{parsed.get('primary_subject')}': {parsed.get('optimized_tavily_search_queries')}")
-                return parsed
-        except Exception as e:
-            logger.warning(f"Gemini analyze_and_formulate_queries call failed: {e}. Using local fallback.")
-            return self._fallback_understanding(input_text)
+        for model_name in GEMINI_MODELS:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"response_mime_type": "application/json"}
+                }
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=15) as res:
+                    data = json.loads(res.read().decode("utf-8"))
+                    text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
+                    parsed = json.loads(text_resp)
+                    logger.info(f"Gemini understanding ({model_name}) generated for subject '{parsed.get('primary_subject')}': {parsed.get('optimized_tavily_search_queries')}")
+                    return parsed
+            except Exception as e:
+                logger.warning(f"Gemini analyze_and_formulate_queries with {model_name} failed: {e}. Trying next model...")
+                continue
+
+        logger.warning("All Gemini models failed for query formulation. Using local fallback.")
+        return self._fallback_understanding(input_text)
 
     def synthesize_fact_check_verdict(
         self,
@@ -93,7 +97,7 @@ Return a strict JSON object with this exact schema:
         direct_answer: Optional[str] = None,
         current_date_str: str = "September 04, 2026",
     ) -> Dict[str, Any]:
-        """Use Gemini 3.5 Flash to evaluate retrieved Tavily evidence and produce final verdict and reasoning."""
+        """Use Gemini as Senior Arbiter to evaluate Tavily evidence, confirm accuracy, and distinguish Misleading vs Fake."""
         if not self.is_available() or not tavily_evidence:
             return self._fallback_verdict_synthesis(claim, understanding, tavily_evidence, direct_answer)
 
@@ -103,59 +107,70 @@ Return a strict JSON object with this exact schema:
                 f"Source {i} [{ev.get('source', 'Web')}]: {ev.get('title', '')} - {ev.get('snippet', '')[:300]}"
             )
 
-        prompt = f"""You are FactSight's Senior Misinformation & Fact-Checking Reasoner.
-Today's date is: {current_date_str}.
+        prompt = f"""You are FactSight's Senior Misinformation Arbiter & Verification Engine.
+Current ground-truth date is: {current_date_str}.
 
-User Claim: \"\"\"{claim}\"\"\"
-Subject: {understanding.get('primary_subject', 'General')}
-Logical Contradiction Detected: {understanding.get('logical_contradiction', False)} ({understanding.get('contradiction_explanation', '')})
+User Input Claim:
+\"\"\"{claim}\"\"\"
+Subject Identified: {understanding.get('primary_subject', 'General')}
 
-Live Search Evidence Retrieved:
+Tavily Live Web Search Results:
 \"\"\"
-Direct Search Summary: {direct_answer or 'N/A'}
+Direct Answer: {direct_answer or 'None'}
 
 {chr(10).join(evidence_snippets)}
 \"\"\"
 
-Analyze the evidence against the claim:
-1. Determine the verdict: "Genuine", "Fake", "Misleading", or "Unverified".
-   - If the claim contains logical contradictions or asserts unannounced/unsubstantiated future events with zero official confirmation, classify as "Fake".
-2. Assign a calculated continuous credibility score percentage (0-100%):
-   - Fake: 1% to 18%
-   - Misleading: 20% to 55%
-   - Unverified: 45% to 55%
-   - Genuine: 80% to 99%
-3. Provide a clear, evidence-grounded detailed explanation explaining WHY it is fake/genuine, citing the specific findings.
+CRITICAL CLASSIFICATION RULES (DO NOT CONFUSE "MISLEADING" WITH "FAKE"):
+1. FIRST: Review Tavily's direct answer and retrieved sources. Confirm whether Tavily's findings are accurate, relevant, and reliable, or if Tavily is off-topic, incomplete, or misunderstanding the claim.
+2. SECOND: Evaluate the claim and classify it into EXACTLY ONE of these 4 distinct categories:
+   - "Genuine" (Credibility: 85% - 99%):
+     The claim is factually accurate, confirmed by authoritative records, and contains no deceit or manipulative distortion.
+   - "Misleading" (Credibility: 25% - 45%):
+     MANDATORY: DO NOT classify as "Fake" if there is an underlying real event, real advisory, real policy, or partial factual basis. Classify as "Misleading" if the claim contains manipulative framing, partial truths, exaggerated statistics, out-of-context quotes, cherry-picked data, sensationalized headlines, or distortions of actual facts (e.g. inflating a local guideline into a nationwide ban).
+   - "Fake" (Credibility: 1% - 15%):
+     The claim is completely fabricated out of thin air, a complete hoax, medical quackery with zero basis, an event that never occurred at all, or a demonstrably disproven myth.
+   - "Unverified" (Credibility: 45% - 55%):
+     Future political predictions, unconfirmed election speculation, subjective opinions, or claims lacking sufficient public evidence.
+3. THIRD: Identify any specific manipulation or deception technique present (e.g. "Exaggeration / Overgeneralization", "Out-of-Context Framing", "Cherry-Picking Statistics", "False Medical Remedy", "Sensationalist Framing", or "None").
+4. FOURTH: Write a multi-paragraph, evidence-grounded detailed explanation explaining WHY it is Genuine, Misleading, Fake, or Unverified, citing the authoritative findings and explicitly highlighting any distortions.
 
-Return a strict JSON object with this exact schema:
+Respond in strict JSON adhering to this schema:
 {{
-  "classification": "Genuine | Fake | Misleading | Unverified",
+  "tavily_verification": "string explaining whether Tavily sources are accurate and relevant",
+  "classification": "Genuine | Misleading | Fake | Unverified",
   "confidence": 0.95,
-  "credibility_score_pct": 5,
-  "detailed_explanation": "multi-paragraph factual explanation citing findings",
-  "key_findings": ["point 1", "point 2"]
+  "credibility_score_pct": 35,
+  "is_manipulative": true,
+  "manipulation_type": "string describing technique or None",
+  "detailed_explanation": "comprehensive explanation citing findings and context",
+  "key_findings": ["point 1", "point 2", "point 3"]
 }}
 """
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={self.api_key}"
-            payload = {
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"responseMimeType": "application/json"}
-            }
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"}
-            )
-            with urllib.request.urlopen(req, timeout=10) as res:
-                data = json.loads(res.read().decode("utf-8"))
-                text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
-                parsed = json.loads(text_resp)
-                logger.info(f"Gemini verdict reasoning complete: {parsed.get('classification')} ({parsed.get('credibility_score_pct')}%)")
-                return parsed
-        except Exception as e:
-            logger.warning(f"Gemini synthesize_fact_check_verdict failed: {e}. Using rule-based fallback.")
-            return self._fallback_verdict_synthesis(claim, understanding, tavily_evidence, direct_answer)
+        for model_name in GEMINI_MODELS:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"response_mime_type": "application/json"}
+                }
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=18) as res:
+                    data = json.loads(res.read().decode("utf-8"))
+                    text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
+                    parsed = json.loads(text_resp)
+                    logger.info(f"Gemini arbiter ({model_name}) complete: {parsed.get('classification')} ({parsed.get('credibility_score_pct')}%) - Manipulation: {parsed.get('manipulation_type')}")
+                    return parsed
+            except Exception as e:
+                logger.warning(f"Gemini synthesize_fact_check_verdict with {model_name} failed: {e}. Trying next model...")
+                continue
+
+        logger.warning("All Gemini models failed for verdict synthesis. Using rule-based fallback.")
+        return self._fallback_verdict_synthesis(claim, understanding, tavily_evidence, direct_answer)
 
     def _fallback_understanding(self, text: str) -> Dict[str, Any]:
         """Rule-based fallback when Gemini API is offline or unreachable."""
@@ -230,6 +245,30 @@ Return a strict JSON object with this exact schema:
         ]
 
         has_refutation = any(re.search(pat, combined_lower) for pat in refutation_regexes)
+
+        # Comprehensive Misleading & Manipulation Patterns
+        misleading_regexes = [
+            r"\bmisleading\b", r"\bpartially\s*true\b", r"\bout\s*of\s*context\b",
+            r"\blacks\s*context\b", r"\bcherry[\s-]picked\b", r"\bexaggerat(ed|ion)\b",
+            r"\bmisrepresented\b", r"\bdistorted\b", r"\bhalf[\s-]truth\b",
+            r"\bsensationalis(t|m)\b", r"\bmanipulat(ed|ive|ion)\b", r"\boverstat(ed|ement)\b",
+            r"\bclickbait\b", r"\bdeceptive\s*framing\b", r"\btaken\s*out\s*of\s*context\b",
+            r"\bpartly\s*false\b", r"\bmostly\s*false\b", r"\bmisleading\s*claim\b"
+        ]
+        has_misleading = any(re.search(pat, combined_lower) for pat in misleading_regexes)
+
+        if has_misleading and not any(re.search(pat, combined_lower) for pat in [r"\bhoax\b", r"\bdebunked\b", r"\bdisproven\b", r"\bextremely\s*dangerous\b"]):
+            return {
+                "classification": "Misleading",
+                "confidence": 0.90,
+                "credibility_score_pct": 35,
+                "manipulation_type": "Context Distortion / Selective Framing",
+                "detailed_explanation": (
+                    f"Investigation indicates this claim is **Misleading**. "
+                    f"{direct_answer or 'While containing partial factual elements, the claim misrepresents context, exaggerates scope, or cherry-picks facts to support a distorted narrative.'}"
+                ),
+                "key_findings": [direct_answer or "Claim contains factual elements but presents them with misleading context or selective framing."],
+            }
 
         if has_refutation:
             return {
