@@ -1,2 +1,1 @@
-"""VeritasAI Backend Application Package."""
-__version__ = "1.0.0"
+# FactSight Backend App

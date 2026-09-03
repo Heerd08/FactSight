@@ -1,202 +1,103 @@
-import os
-from typing import Optional, List
-from fastapi import FastAPI, HTTPException, status, Query
+"""
+FactSight Backend — FastAPI Application Entry Point (Pure RAG Architecture)
+
+AI-Powered Misinformation Detection and Credibility Assessment System.
+"""
+
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
 
-from app.config import settings
-from app.schemas import (
-    AnalysisRequest,
-    AnalysisResponse,
-    VerificationRequest,
-    VerificationResponse,
-    ClaimExtractionRequest,
-    ClaimExtractionResponse,
-    ExtractedClaim,
-    HealthResponse,
-    RAGMatch,
-    FactSightReport,
-    TextVerifyRequest,
-    UrlVerifyRequest,
-    EmailVerifyRequest,
-    SocialVerifyRequest,
+from app.core.config import settings
+from app.database.db import init_db
+from app.rag.vector_store import get_vector_store
+from app.rag.ingestion import seed_vector_store
+from app.api.routes import health, analyze, feedback, reports
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-from app.services import pipeline, rag_service, evaluate_credibility, build_factsight_report
+logger = logging.getLogger(__name__)
 
-load_dotenv()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler — runs on startup and shutdown."""
+    # Startup
+    logger.info("=" * 60)
+    logger.info("FactSight Backend Starting (Pure RAG Mode)...")
+    logger.info("=" * 60)
+
+    # 1. Initialize Database 1 (Application DB)
+    logger.info("Initializing Application Database (Database 1)...")
+    init_db()
+    logger.info("Application Database initialized.")
+
+    # 2. Initialize Database 2 (Vector DB for RAG)
+    logger.info("Initializing Vector Database (Database 2)...")
+    try:
+        vector_store = get_vector_store()
+        vector_store.initialize()
+        if vector_store.count() == 0:
+            logger.info("Vector store is empty. Seeding initial fact-checking corpus...")
+            seed_vector_store()
+        logger.info(f"Vector Database ready with {vector_store.count()} indexed fact-checks.")
+    except Exception as e:
+        logger.warning(f"Vector DB startup warning: {e}")
+
+    logger.info("=" * 60)
+    logger.info(f"FactSight Pure RAG Backend Ready at http://{settings.HOST}:{settings.PORT}")
+    logger.info(f"API Docs: http://{settings.HOST}:{settings.PORT}/docs")
+    logger.info("=" * 60)
+
+    yield
+
+    # Shutdown
+    logger.info("FactSight Backend shutting down...")
+
+
+# Create FastAPI app
 app = FastAPI(
-    title="TruthGuard AI - Credibility Engine API",
-    description="Automated misinformation detection and evidence synthesis API.",
-    version="1.0.0"
+    title="FactSight API (Pure RAG)",
+    description=(
+        "AI-Powered Misinformation Detection and Credibility Assessment System.\n\n"
+        "- **Database 1**: Application Database (Users, History, Reports, Feedback, Audit Logs)\n"
+        "- **Database 2**: Vector Database (RAG Fact-Checking Knowledge Base)\n"
+        "- **Architecture**: Pure RAG with ChromaDB & dense cosine vector search"
+    ),
+    version="2.0.0",
+    lifespan=lifespan,
 )
 
-# Configure CORS to allow communication with frontend dashboard
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust to http://localhost:3000 in production
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-@app.get("/health", tags=["System"])
-async def health_check():
-    return {"status": "healthy", "service": "TruthGuard Backend"}
-
-
-@app.get("/api/health", response_model=HealthResponse, tags=["System"])
-def api_health_check():
-    """
-    Detailed health diagnostic endpoint with AI provider status and loaded Kaggle records.
-    """
-    return HealthResponse(
-        status="healthy",
-        service="TruthGuard Backend",
-        version="1.0.0",
-        ai_provider=settings.AI_PROVIDER,
-        gemini_configured=bool(settings.GEMINI_API_KEY),
-        rag_records_loaded=len(rag_service.records),
-    )
+# Include routers
+app.include_router(health.router, prefix="/api")
+app.include_router(analyze.router, prefix="/api")
+app.include_router(feedback.router, prefix="/api")
+app.include_router(reports.router, prefix="/api")
 
 
-@app.post(
-    "/api/v1/assess", 
-    response_model=AnalysisResponse, 
-    status_code=status.HTTP_200_OK,
-    tags=["Analysis"]
-)
-async def assess_credibility(payload: AnalysisRequest):
-    try:
-        raw_result = evaluate_credibility(payload.content)
-        # Validate against schema before returning
-        return AnalysisResponse(**raw_result)
-    except Exception as err:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Analysis pipeline error: {str(err)}"
-        )
-
-
-@app.post("/api/analyze", response_model=AnalysisResponse, tags=["Analysis"])
-async def analyze_content_alias(payload: AnalysisRequest):
-    """
-    Convenience alias for /api/v1/assess
-    """
-    return await assess_credibility(payload)
-
-
-# =============================================================================
-# FactSight Integration Endpoints
-# =============================================================================
-
-@app.post("/api/v1/verify/text", response_model=FactSightReport, tags=["FactSight"])
-async def verify_text(payload: TextVerifyRequest):
-    content = payload.text or payload.content or ""
-    if not content.strip():
-        raise HTTPException(status_code=400, detail="Text content is required")
-    try:
-        return build_factsight_report(content, content_type="text")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
-
-
-@app.post("/api/v1/verify/url", response_model=FactSightReport, tags=["FactSight"])
-async def verify_url(payload: UrlVerifyRequest):
-    try:
-        return build_factsight_report(f"Content published at URL: {payload.url}", content_type="url")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"URL verification failed: {str(e)}")
-
-
-@app.post("/api/v1/verify/email", response_model=FactSightReport, tags=["FactSight"])
-async def verify_email(payload: EmailVerifyRequest):
-    try:
-        return build_factsight_report(payload.emailContent, content_type="email")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Email verification failed: {str(e)}")
-
-
-@app.post("/api/v1/verify/social", response_model=FactSightReport, tags=["FactSight"])
-async def verify_social(payload: SocialVerifyRequest):
-    try:
-        return build_factsight_report(f"Social post statement: {payload.socialUrl}", content_type="social")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Social verification failed: {str(e)}")
-
-
-
-@app.post("/api/verify", response_model=VerificationResponse, tags=["Fact Checking"])
-def verify_claim(request: VerificationRequest):
-    """
-    Detailed multi-dimensional verification endpoint querying Kaggle CSV RAG and returning evidence sources.
-    """
-    try:
-        result = pipeline.verify(request)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
-
-
-@app.post("/api/extract-claims", response_model=ClaimExtractionResponse, tags=["Fact Checking"])
-def extract_claims(request: ClaimExtractionRequest):
-    """
-    Extracts individual atomic claims and assertions from an article or longer text.
-    """
-    import re
-    sentences = re.split(r'(?<=[.!?])\s+', request.text.strip())
-    claims = [
-        ExtractedClaim(claim=s[:200], speaker_or_entity="Input Text", confidence=0.88)
-        for s in sentences if len(s.strip()) > 15
-    ]
-    return ClaimExtractionResponse(
-        original_text=request.text,
-        claims_found=claims,
-        count=len(claims),
-    )
-
-
-@app.get("/api/dataset", response_model=List[RAGMatch], tags=["Kaggle Dataset RAG"])
-def search_dataset(
-    q: Optional[str] = Query(None, description="Search keyword or claim to query"),
-    limit: int = Query(10, ge=1, le=50, description="Max records to return"),
-):
-    """
-    Query the indexed Kaggle CSV benchmark datasets in the data/ directory.
-    """
-    if q:
-        return rag_service.search(q, top_k=limit, threshold=0.05)
-
-    return [
-        RAGMatch(
-            claim_id=rec["claim_id"],
-            matched_claim=rec["claim_text"],
-            verdict=rec["verdict"],
-            category=rec["category"],
-            source=rec["source"],
-            explanation=rec["explanation"],
-            similarity_score=1.0,
-        )
-        for rec in rag_service.records[:limit]
-    ]
-
-
-@app.post("/api/dataset/reload", tags=["Kaggle Dataset RAG"])
-def reload_dataset():
-    """
-    Reloads all CSV files from the data/ directory.
-    """
-    count = rag_service.reload_datasets()
+@app.get("/", include_in_schema=False)
+async def root():
+    """Root endpoint — redirects to docs."""
     return {
-        "status": "success",
-        "message": f"Reloaded {count} benchmark records from data/ directory",
-        "total_records": count,
+        "message": "FactSight API — Pure RAG Misinformation Detection System",
+        "version": "2.0.0",
+        "docs": "/docs",
+        "health": "/api/health",
+        "analyze": "/api/analyze",
+        "feedback": "/api/feedback",
+        "reports": "/api/reports",
     }
-
-
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.getenv("PORT", 8000))
-    host = os.getenv("HOST", "127.0.0.1")
-    uvicorn.run("app.main:app", host=host, port=port, reload=True)
