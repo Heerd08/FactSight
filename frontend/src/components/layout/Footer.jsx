@@ -40,7 +40,7 @@ export default function Footer() {
               <li><Link to="/how-it-works" className="hover:text-indigo-600 transition-colors">How FactSight Works</Link></li>
               <li><Link to="/settings" className="hover:text-indigo-600 transition-colors">Settings & Privacy</Link></li>
               <li><span className="text-slate-400 cursor-not-allowed">Browser Extension (Soon)</span></li>
-              <li><span className="text-slate-400 cursor-not-allowed">API Documentation (Soon)</span></li>
+              <li><span className="text-slate-400 cursor-not-allowed">API Documentation</span></li>
             </ul>
           </div>
 
@@ -51,7 +51,7 @@ export default function Footer() {
               FactSight AI provides credibility indicators for educational purposes. We encourage users to verify primary sources and context.
             </p>
             <div className="flex items-center gap-3 text-slate-400">
-              <span className="text-xs font-medium text-indigo-600">v1.0 (Hackathon Edition)</span>
+              <span className="text-xs font-medium text-indigo-600">v2.0 (Dual-DB & RAG Edition)</span>
             </div>
           </div>
         </div>

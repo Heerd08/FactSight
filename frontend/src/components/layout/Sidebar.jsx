@@ -38,7 +38,6 @@ export default function Sidebar({ isOpen, onClose }) {
     if (onClose) onClose();
     if (item.isAction) {
       navigate('/dashboard');
-      // Scroll to verify section if on dashboard
       setTimeout(() => {
         const el = document.getElementById('verify-section');
         if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -107,7 +106,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   <button
                     key={item.name}
                     onClick={() => handleNavClick(item)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-indigo-600 hover:bg-indigo-50/70 transition-all text-left group"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-indigo-600 hover:bg-indigo-50/70 transition-all text-left group cursor-pointer"
                   >
                     <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100/80 transition-colors">
                       <Icon className="w-4 h-4 text-indigo-600" />
@@ -173,10 +172,10 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="p-3.5 rounded-xl bg-gradient-to-br from-indigo-50/80 via-purple-50/40 to-slate-50 border border-indigo-100/80 shadow-2xs">
             <div className="flex items-center gap-2 text-indigo-700 text-xs font-bold mb-1">
               <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Help fight misinformation</span>
+              <span>AI + RAG Verification</span>
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed mb-3">
-              Every verification helps build a more transparent and informed community.
+              Cross-referencing claims with real-time Vector DB semantic fact checks.
             </p>
             <NavLink
               to="/how-it-works"

@@ -1,31 +1,31 @@
 import React, { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
-import { ShieldCheck, Menu, X, ArrowRight, Sparkles } from 'lucide-react';
+import { NavLink, Link } from 'react-router-dom';
+import { ShieldCheck, Menu, X, ArrowRight } from 'lucide-react';
 import Button from '../common/Button';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 transition-all">
+    <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
+        <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+          <Link to="/" className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
               <ShieldCheck className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-lg text-slate-900 leading-tight tracking-tight">
+              <span className="font-bold text-base text-slate-900 leading-tight tracking-tight flex items-center gap-1">
                 FactSight <span className="text-indigo-600">AI</span>
               </span>
               <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
-                Misinformation Shield
+                Truth Verification
               </span>
             </div>
           </Link>
 
-          {/* Center Links */}
+          {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center gap-8">
             <NavLink
               to="/"
@@ -57,12 +57,6 @@ export default function Navbar() {
             >
               Source Insights
             </NavLink>
-            <a
-              href="#about"
-              className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors"
-            >
-              About
-            </a>
           </div>
 
           {/* Right Action */}

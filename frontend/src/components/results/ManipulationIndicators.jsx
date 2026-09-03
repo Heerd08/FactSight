@@ -35,7 +35,7 @@ export default function ManipulationIndicators({ indicators = [] }) {
             <ShieldCheck className="w-4 h-4" />
             <span>No manipulation markers flagged</span>
           </div>
-          <p className="text-[11px] text-slate-400">Deepfake heuristics, cherry-picked data, and synthetic audio patterns will appear here if detected.</p>
+          <p className="text-[11px] text-slate-400">Sensationalism, urgency pressure, cherry-picked data, or synthetic text patterns will appear here if detected.</p>
         </div>
       )}
     </Card>

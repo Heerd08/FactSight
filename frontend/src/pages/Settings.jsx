@@ -1,38 +1,24 @@
 import React, { useState } from 'react';
-import {
-  Settings as SettingsIcon,
-  Moon,
-  Sun,
-  Bell,
-  Sliders,
-  Shield,
-  Check,
-  Save,
-  Lock,
-  Eye,
-  Database
-} from 'lucide-react';
+import { Settings as SettingsIcon, Sun, Moon, Shield, Bell, Check, Save } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-import Badge from '../components/common/Badge';
 
 export default function Settings() {
   const [theme, setTheme] = useState('light');
-  const [emailAlerts, setEmailAlerts] = useState(true);
-  const [highRiskOnly, setHighRiskOnly] = useState(false);
   const [strictThreshold, setStrictThreshold] = useState('standard');
-  const [saveHistoryLocally, setSaveHistoryLocally] = useState(true);
+  const [emailAlerts, setEmailAlerts] = useState(false);
+  const [highRiskOnly, setHighRiskOnly] = useState(true);
   const [anonymizeSubmissions, setAnonymizeSubmissions] = useState(true);
+  const [saveHistoryLocally, setSaveHistoryLocally] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const handleSave = () => {
     setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+    setTimeout(() => setSavedSuccess(false), 3000);
   };
 
   return (
     <div className="space-y-8 pb-12 max-w-4xl">
-      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/60">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -129,7 +115,7 @@ export default function Settings() {
           <div className="flex items-center justify-between gap-4 py-2">
             <div>
               <h4 className="text-xs font-bold text-slate-800">Deepfake & Synthetic Media Detection</h4>
-              <p className="text-xs text-slate-500">Run extra neural filters to check image compression artifacts and metadata tampering.</p>
+              <p className="text-xs text-slate-500">Run neural filters to check image compression artifacts and metadata tampering.</p>
             </div>
             <input
               type="checkbox"

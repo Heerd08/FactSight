@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "FactSight AI — Credibility & Fact Verification",
+  "version": "1.0.0",
+  "description": "Instant 1-click AI & Pure RAG credibility assessment for web articles and text claims.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "FactSight AI"
+  },
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}

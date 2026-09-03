@@ -58,7 +58,7 @@ export default function EvidenceSection({ evidence = [], isDashboardMini = false
 
         <div className="pt-3 border-t border-slate-100 text-center">
           <span className="text-[11px] text-slate-400">
-            Real-time web & database lookup
+            Real-time RAG Vector Store lookup
           </span>
         </div>
       </Card>
