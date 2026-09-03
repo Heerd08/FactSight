@@ -1,5 +1,5 @@
 """
-FactSight Backend — FastAPI Application Entry Point (Pure RAG Architecture)
+FactSight Backend — FastAPI Application Entry Point (Pure RAG & AI Agent Architecture)
 
 AI-Powered Misinformation Detection and Credibility Assessment System.
 """
@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.database.db import init_db
 from app.rag.vector_store import get_vector_store
 from app.rag.ingestion import seed_vector_store
-from app.api.routes import health, analyze, feedback, reports
+from app.api.routes import health, analyze, feedback, reports, agent
 
 # Configure logging
 logging.basicConfig(
@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler — runs on startup and shutdown."""
     # Startup
     logger.info("=" * 60)
-    logger.info("FactSight Backend Starting (Pure RAG Mode)...")
+    logger.info("FactSight Backend Starting (Pure RAG & AI Agent Mode)...")
     logger.info("=" * 60)
 
     # 1. Initialize Database 1 (Application DB)
@@ -62,14 +62,15 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="FactSight API (Pure RAG)",
+    title="FactSight AI Agent & Pure RAG API",
     description=(
         "AI-Powered Misinformation Detection and Credibility Assessment System.\n\n"
+        "- **AI Web Search Agent**: Autonomous deep web research & evidence conclusion\n"
         "- **Database 1**: Application Database (Users, History, Reports, Feedback, Audit Logs)\n"
-        "- **Database 2**: Vector Database (RAG Fact-Checking Knowledge Base)\n"
-        "- **Architecture**: Pure RAG with ChromaDB & dense cosine vector search"
+        "- **Database 2**: Vector Database (ChromaDB Fact-Checking Knowledge Base)\n"
+        "- **Architecture**: Pure RAG with Tavily / Open Web Live Retrieval"
     ),
-    version="2.0.0",
+    version="2.1.0",
     lifespan=lifespan,
 )
 
@@ -85,6 +86,7 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, prefix="/api")
 app.include_router(analyze.router, prefix="/api")
+app.include_router(agent.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 
@@ -93,11 +95,12 @@ app.include_router(reports.router, prefix="/api")
 async def root():
     """Root endpoint — redirects to docs."""
     return {
-        "message": "FactSight API — Pure RAG Misinformation Detection System",
-        "version": "2.0.0",
+        "message": "FactSight API — AI Web Search Agent & Pure RAG System",
+        "version": "2.1.0",
         "docs": "/docs",
         "health": "/api/health",
         "analyze": "/api/analyze",
+        "agent": "/api/agent/search-and-conclude",
         "feedback": "/api/feedback",
         "reports": "/api/reports",
     }

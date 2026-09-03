@@ -1,40 +1,38 @@
 """
-Analysis Service — Orchestrates the Multi-Modal Pure RAG Analysis Pipeline.
+Analysis Service — Multi-Modal Verification Orchestration Engine.
 
-Supports 6 Input Modalities:
-1. Copy-Paste Plain Text
-2. Web Article / URL
-3. Screenshot Image / OCR
-4. Browser Extension Submissions
-5. Forwarded Email Verification
-6. Social Media Posts (X/Twitter, Reddit, YouTube, Instagram)
+Orchestrates the 6-modality pipeline:
+1. Multi-modal Extraction (Text, URL scraping, OCR, Email parsing, Social extraction)
+2. Linguistic manipulation & phishing detection
+3. Multi-tier Hybrid Evidence Retrieval (ChromaDB + Tavily AI Search)
+4. Continuous multi-factor Credibility & Confidence calculation
+5. Database 1 audit logging & history storage
 """
 
-import json
 import logging
 from typing import Optional
-
 from sqlalchemy.orm import Session
 
+from app.api.schemas.analysis import AnalyzeResponse, EvidenceItem
 from app.services.content_extractor import get_content_extractor
 from app.services.evidence_service import get_evidence_service
 from app.services.credibility_service import get_credibility_service
 from app.services.manipulation_detector import get_manipulation_detector
 from app.database.models import AnalysisHistory, AuditLog
-from app.api.schemas.analysis import AnalyzeResponse, EvidenceItem
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
 class AnalysisService:
-    """Orchestrates the multi-modal Pure RAG analysis pipeline."""
+    """Orchestrates the verification pipeline across all 6 input modalities."""
 
     def __init__(self):
         self.extractor = get_content_extractor()
         self.evidence_service = get_evidence_service()
         self.credibility_service = get_credibility_service()
         self.manipulation_detector = get_manipulation_detector()
-        self.model_version = "rag-chromadb-minilm-v1"
+        self.model_version = settings.MODEL_VERSION
 
     def analyze(
         self,
@@ -43,15 +41,15 @@ class AnalysisService:
         content_type: str = "text",
         sender: Optional[str] = None,
         image_base64: Optional[str] = None,
-        db: Session = None,
+        db: Optional[Session] = None,
         user_id: Optional[int] = None,
         client_ip: Optional[str] = None,
     ) -> AnalyzeResponse:
-        """Run the multi-modal Pure RAG analysis pipeline.
+        """Execute verification across any modality.
 
         Args:
-            text: Input text/claim/email body
-            url: Web article URL or social media post link
+            text: Plain text input / claim / email body
+            url: Article or social media URL
             content_type: 'text', 'url', 'image', 'email', 'social', 'extension'
             sender: Sender email address (for email verification)
             image_base64: Base64 image payload (for image verification)
@@ -86,36 +84,53 @@ class AnalysisService:
                 if flag not in manipulation_indicators:
                     manipulation_indicators.append(flag)
 
-        # Step 3: Query ChromaDB Vector Database (Database 2)
+        # Step 3: Query Multi-tier Knowledge Base (Gemini Pre-Analysis + Tavily Live Search)
         search_query = claim_text[:500]
-        evidence_result = self.evidence_service.retrieve_evidence(search_query)
+        evidence_result = self.evidence_service.retrieve_evidence(search_query, content_type=content_type)
         evidence_status = evidence_result.get("status", "not_configured")
         rag_consensus = evidence_result.get("consensus_verdict")
         rag_similarity = evidence_result.get("max_similarity", 0.0)
+        raw_sources = evidence_result.get("sources", [])
 
         evidence_items = [
-            EvidenceItem(**src) for src in evidence_result.get("sources", [])
+            EvidenceItem(**src) for src in raw_sources
         ]
 
-        # Step 4: Pure RAG Classification & Confidence Evaluation
-        classification, confidence = self.credibility_service.evaluate_rag_classification(
-            evidence_status=evidence_status,
-            rag_consensus=rag_consensus,
-            rag_similarity=rag_similarity,
-            manipulation_indicators=manipulation_indicators,
-        )
+        # Step 4: Adopt Gemini Dual-AI Verdict or fallback to Credibility Service
+        if evidence_result.get("detailed_explanation") and evidence_result.get("credibility_score_pct") is not None:
+            classification = evidence_result["classification"]
+            confidence = float(evidence_result["confidence"])
+            credibility_score_pct = int(evidence_result["credibility_score_pct"])
+            credibility_score = max(1, min(10, round(credibility_score_pct / 10.0)))
+            detailed_explanation = evidence_result["detailed_explanation"]
+        else:
+            classification, confidence = self.credibility_service.evaluate_rag_classification(
+                evidence_status=evidence_status,
+                rag_consensus=rag_consensus,
+                rag_similarity=rag_similarity,
+                manipulation_indicators=manipulation_indicators,
+                claim_text=claim_text,
+                evidence_sources=raw_sources,
+            )
+            credibility_score_pct = self.credibility_service.compute_credibility_percentage(
+                classification=classification,
+                confidence=confidence,
+                evidence_status=evidence_status,
+                manipulation_indicators=manipulation_indicators,
+                rag_consensus=rag_consensus,
+                rag_similarity=rag_similarity,
+                claim_text=claim_text,
+                evidence_sources=raw_sources,
+            )
+            credibility_score = max(1, min(10, round(credibility_score_pct / 10.0)))
+            detailed_explanation = self.credibility_service.generate_detailed_synthesis(
+                classification=classification,
+                confidence=confidence,
+                claim_text=claim_text,
+                evidence_sources=raw_sources,
+                direct_answer=evidence_result.get("direct_answer") or evidence_result.get("conclusion"),
+            )
 
-        # Step 5: Pure RAG Credibility Score Synthesis (1 to 10)
-        credibility_score = self.credibility_service.compute_credibility_score(
-            classification=classification,
-            confidence=confidence,
-            evidence_status=evidence_status,
-            manipulation_indicators=manipulation_indicators,
-            rag_consensus=rag_consensus,
-            rag_similarity=rag_similarity,
-        )
-
-        # Step 6: Generate Evidence-Grounded Rationales
         reasons = self.credibility_service.generate_reasons(
             classification=classification,
             confidence=confidence,
@@ -137,6 +152,8 @@ class AnalysisService:
             classification=classification,
             confidence=confidence,
             credibility_score=credibility_score,
+            credibility_score_pct=credibility_score_pct,
+            detailed_explanation=detailed_explanation,
             main_claim=claim_text if len(claim_text) < 200 else claim_text[:197] + "...",
             reasons=reasons,
             suspicious_phrases=suspicious_phrases,
@@ -148,16 +165,17 @@ class AnalysisService:
             metadata=modality_metadata,
         )
 
-        # Step 8: Store in Database 1 (AnalysisHistory & AuditLog)
-        if db:
+        # Step 8: Persist to Database 1 (Application DB)
+        if db is not None:
             try:
-                history = AnalysisHistory(
+                import json
+                history_record = AnalysisHistory(
                     user_id=user_id,
                     input_text=claim_text,
                     classification=classification,
                     confidence=confidence,
                     credibility_score=credibility_score,
-                    main_claim=response.main_claim,
+                    main_claim=claim_text[:200],
                     reasons=json.dumps(reasons),
                     suspicious_phrases=json.dumps(suspicious_phrases),
                     manipulation_indicators=json.dumps(manipulation_indicators),
@@ -166,31 +184,22 @@ class AnalysisService:
                     recommendation=recommendation,
                     model_version=self.model_version,
                 )
-                db.add(history)
-                db.commit()
-                db.refresh(history)
+                db.add(history_record)
+                db.flush()
 
-                audit = AuditLog(
+                audit_log = AuditLog(
                     user_id=user_id,
-                    action=f"ANALYZE_{content_type.upper()}",
+                    action=f"analyze_{content_type}",
                     resource_type="analysis",
-                    resource_id=history.id,
+                    resource_id=history_record.id,
                     ip_address=client_ip,
-                    details=json.dumps({
-                        "modality": content_type,
-                        "classification": classification,
-                        "credibility_score": credibility_score,
-                        "evidence_count": len(evidence_items),
-                        "evidence_status": evidence_status,
-                        "rag_consensus": rag_consensus,
-                        "rag_similarity": rag_similarity,
-                    }),
+                    details=f'{{"classification": "{classification}", "confidence": {confidence:.2f}, "score": {credibility_score_pct}}}',
                 )
-                db.add(audit)
+                db.add(audit_log)
                 db.commit()
-                logger.info(f"Analysis saved to SQL DB (id={history.id}) for modality: {content_type}")
+                logger.info(f"Analysis saved to SQL DB (id={history_record.id}) for modality: {content_type}")
             except Exception as e:
-                logger.error(f"Failed to store analysis in SQL database: {e}")
+                logger.error(f"Failed to save analysis to Database 1: {e}", exc_info=True)
                 db.rollback()
 
         return response

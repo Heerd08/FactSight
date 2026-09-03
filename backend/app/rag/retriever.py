@@ -1,7 +1,7 @@
 """
-RAG Retriever Service — Performs semantic similarity retrieval of verified evidence.
+RAG Retriever Service — Semantic Similarity Retrieval of Verified Evidence.
 
-Takes user input / extracted claims, retrieves nearest matches from Vector Database,
+Retrieves nearest matches from Vector Database with flexible thresholds,
 computes semantic similarity scores, and formats structured evidence for credibility scoring.
 """
 
@@ -9,7 +9,6 @@ import logging
 from typing import List, Dict, Any, Optional
 
 from app.rag.vector_store import get_vector_store
-from app.api.schemas.analysis import EvidenceItem
 
 logger = logging.getLogger(__name__)
 
@@ -17,25 +16,12 @@ logger = logging.getLogger(__name__)
 class RAGRetriever:
     """Retrieves relevant verified fact-checks from the Vector Database."""
 
-    def __init__(self, min_similarity: float = 0.55):
+    def __init__(self, min_similarity: float = 0.40):
         self.vector_store = get_vector_store()
         self.min_similarity = min_similarity
 
     def retrieve(self, query_claim: str, top_k: int = 3) -> Dict[str, Any]:
-        """Retrieve verified evidence relevant to the input claim.
-
-        Args:
-            query_claim: Text claim to verify
-            top_k: Max number of evidence articles to return
-
-        Returns:
-            Dict containing:
-                - sources: list of EvidenceItem objects/dicts
-                - status: 'found', 'no_results', or 'not_configured'
-                - max_similarity: highest cosine similarity score
-                - consensus_verdict: consensus verdict among retrieved evidence (True/False/Mixed/None)
-        """
-        # Ensure vector store is initialized
+        """Retrieve verified evidence relevant to the input claim."""
         if not self.vector_store.is_initialized:
             self.vector_store.initialize()
 
@@ -73,7 +59,6 @@ class RAGRetriever:
             snippet = meta.get("snippet", match.get("document", ""))
             sim_pct = int(match["similarity"] * 100)
             
-            # Enrich snippet with similarity context
             enriched_snippet = f"[{sim_pct}% Match] {snippet}"
             
             sources.append({
@@ -92,7 +77,7 @@ class RAGRetriever:
         if verdicts:
             if all(v in ("true", "genuine", "accurate") for v in verdicts):
                 consensus = "True"
-            elif all(v in ("false", "pants-fire", "fake", "incorrect") for v in verdicts):
+            elif all(v in ("false", "pants-fire", "fake", "incorrect", "barely-true") for v in verdicts):
                 consensus = "False"
             else:
                 consensus = "Mixed"

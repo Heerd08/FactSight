@@ -3,12 +3,13 @@ Knowledge Ingestion Service — Ingests fact-checking articles, claims, and veri
 
 Supports:
 - High-quality seed fact-check corpus (PolitiFact, Reuters, CDC, WHO, SciCheck)
-- CSV, JSON, and Parquet batch file ingestion CLI
+- CSV, TSV (LIAR), JSON, JSONL (FEVEROUS), and Parquet batch file ingestion CLI
 """
 
 import json
 import logging
 import argparse
+import csv
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -113,7 +114,6 @@ def seed_vector_store():
     ids = []
 
     for item in SEED_FACT_CHECKS:
-        # Document text includes the claim, snippet, and source for rich semantic retrieval
         doc_text = f"Claim: {item['claim']}\nVerification: {item['snippet']}"
         documents.append(doc_text)
         metadatas.append({
@@ -135,52 +135,134 @@ def seed_vector_store():
     logger.info(f"Vector store seeded successfully. Total documents: {vector_store.count()}")
 
 
-def ingest_file(file_path: str, claim_col: str = "claim", snippet_col: str = "snippet", source_col: str = "source", url_col: str = "url"):
-    """Ingest external CSV, JSON, or Parquet fact-check dataset into the Vector Database."""
+def ingest_file(file_path: str, limit: Optional[int] = None):
+    """Ingest CSV, TSV (LIAR), JSONL (FEVEROUS), JSON, or Parquet dataset into Vector DB."""
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    logger.info(f"Loading dataset file: {path.name}")
-    if path.suffix == ".csv":
-        df = pd.read_csv(path)
-    elif path.suffix == ".json":
-        df = pd.read_json(path)
-    elif path.suffix == ".parquet":
-        df = pd.read_parquet(path)
-    else:
-        raise ValueError("Unsupported format. Use .csv, .json, or .parquet")
-
+    logger.info(f"Loading dataset file: {path.name} (limit={limit})")
     documents = []
     metadatas = []
     ids = []
 
-    for idx, row in df.iterrows():
-        claim = str(row.get(claim_col, ""))
-        snippet = str(row.get(snippet_col, row.get("text", "")))
-        source = str(row.get(source_col, "Verified Fact Check"))
-        url = str(row.get(url_col, ""))
-        verdict = str(row.get("verdict", row.get("label", "Checked")))
+    # 1. JSONL (FEVEROUS)
+    if path.suffix == ".jsonl":
+        with open(path, "r", encoding="utf-8") as f:
+            for idx, line in enumerate(f):
+                if limit and idx >= limit:
+                    break
+                try:
+                    data = json.loads(line)
+                    claim = data.get("claim", "").strip()
+                    label = data.get("label", "").strip()
+                    if not claim or label not in ["SUPPORTS", "REFUTES"]:
+                        continue
 
-        if not claim and not snippet:
-            continue
+                    verdict = "True" if label == "SUPPORTS" else "False"
+                    source = "FEVEROUS Benchmark Knowledge Base"
+                    snippet = f"Verified statement: {claim}. Ground truth evaluation confirmed as {label}."
+                    doc_text = f"Claim: {claim}\nVerification: {snippet}"
+                    doc_id = f"feverous_{idx}"
 
-        doc_text = f"Claim: {claim}\nVerification: {snippet}"
-        doc_id = f"custom_{path.stem}_{idx}"
+                    documents.append(doc_text)
+                    metadatas.append({
+                        "claim": claim,
+                        "title": f"FEVEROUS Fact Verification #{idx}",
+                        "source": source,
+                        "url": "https://fever.ai/",
+                        "verdict": verdict,
+                        "snippet": snippet,
+                    })
+                    ids.append(doc_id)
+                except Exception:
+                    continue
 
-        documents.append(doc_text)
-        metadatas.append({
-            "claim": claim,
-            "title": str(row.get("title", f"Fact Check #{idx}")),
-            "source": source,
-            "url": url,
-            "verdict": verdict,
-            "snippet": snippet,
-        })
-        ids.append(doc_id)
+    # 2. TSV (LIAR dataset)
+    elif path.suffix == ".tsv":
+        with open(path, "r", encoding="utf-8") as f:
+            reader = csv.reader(f, delimiter="\t")
+            for idx, row in enumerate(reader):
+                if limit and idx >= limit:
+                    break
+                try:
+                    if len(row) < 3:
+                        continue
+                    raw_label = row[1].strip().lower()
+                    claim = row[2].strip()
+                    context = f"Subject: {row[3] if len(row) > 3 else ''} by {row[4] if len(row) > 4 else 'Public Speaker'}"
+
+                    # Map 6-point LIAR labels
+                    if raw_label in ["true", "mostly-true"]:
+                        verdict = "True"
+                    elif raw_label in ["false", "pants-fire", "barely-true"]:
+                        verdict = "False"
+                    else:
+                        verdict = "Unverified"
+
+                    source = "PolitiFact (LIAR Dataset)"
+                    snippet = f"Statement by {row[4] if len(row) > 4 else 'Speaker'}: {claim}. PolitiFact rating: {raw_label}."
+                    doc_text = f"Claim: {claim}\nVerification: {snippet}"
+                    doc_id = f"liar_{idx}"
+
+                    documents.append(doc_text)
+                    metadatas.append({
+                        "claim": claim,
+                        "title": f"PolitiFact Check #{idx}",
+                        "source": source,
+                        "url": "https://www.politifact.com/",
+                        "verdict": verdict,
+                        "snippet": snippet,
+                    })
+                    ids.append(doc_id)
+                except Exception:
+                    continue
+
+    # 3. Standard CSV / JSON / Parquet
+    elif path.suffix in [".csv", ".json", ".parquet"]:
+        if path.suffix == ".csv":
+            df = pd.read_csv(path)
+        elif path.suffix == ".json":
+            df = pd.read_json(path)
+        else:
+            df = pd.read_parquet(path)
+
+        if limit:
+            df = df.head(limit)
+
+        for idx, row in df.iterrows():
+            claim = str(row.get("claim", row.get("title", row.get("statement", ""))))
+            snippet = str(row.get("snippet", row.get("text", row.get("explanation", ""))))
+            source = str(row.get("source", "Verified Fact Check"))
+            url = str(row.get("url", ""))
+            verdict = str(row.get("verdict", row.get("label", "Checked")))
+
+            if not claim and not snippet:
+                continue
+
+            doc_text = f"Claim: {claim}\nVerification: {snippet}"
+            doc_id = f"custom_{path.stem}_{idx}"
+
+            documents.append(doc_text)
+            metadatas.append({
+                "claim": claim,
+                "title": str(row.get("title", f"Fact Check #{idx}")),
+                "source": source,
+                "url": url,
+                "verdict": verdict,
+                "snippet": snippet,
+            })
+            ids.append(doc_id)
 
     vector_store = get_vector_store()
-    vector_store.add_documents(documents=documents, metadatas=metadatas, ids=ids)
+    # Batch add in chunks of 200
+    batch_size = 200
+    for i in range(0, len(ids), batch_size):
+        vector_store.add_documents(
+            documents=documents[i:i+batch_size],
+            metadatas=metadatas[i:i+batch_size],
+            ids=ids[i:i+batch_size],
+        )
     logger.info(f"Successfully ingested {len(ids)} documents from {path.name}. Total in Vector DB: {vector_store.count()}")
 
 
@@ -188,10 +270,11 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="FactSight Vector DB Ingestion CLI")
     parser.add_argument("--seed", action="store_true", help="Ingest standard benchmark seed corpus")
-    parser.add_argument("--file", type=str, help="Path to custom dataset file (.csv, .json, .parquet)")
+    parser.add_argument("--file", type=str, help="Path to custom dataset file (.jsonl, .tsv, .csv, .json, .parquet)")
+    parser.add_argument("--limit", type=int, default=None, help="Maximum number of records to index")
     args = parser.parse_args()
 
     if args.file:
-        ingest_file(args.file)
+        ingest_file(args.file, limit=args.limit)
     else:
         seed_vector_store()

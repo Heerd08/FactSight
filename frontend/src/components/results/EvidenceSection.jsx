@@ -32,20 +32,24 @@ export default function EvidenceSection({ evidence = [], isDashboardMini = false
           {hasEvidence ? (
             <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
               {evidence.map((item, idx) => (
-                <div
+                <a
                   key={item.id || idx}
-                  className="p-2.5 bg-slate-50/70 rounded-xl border border-slate-100 flex items-center justify-between text-xs"
+                  href={item.url || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`Open ${item.sourceName || 'source'}`}
+                  className="p-2.5 bg-slate-50/70 rounded-xl border border-slate-100 flex items-center justify-between text-xs hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center gap-2 truncate">
-                    <div className="w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-[10px] shrink-0">
+                    <div className="w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-[10px] shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                       {item.sourceName?.charAt(0) || 'S'}
                     </div>
-                    <span className="font-medium text-slate-800 truncate">{item.sourceName}</span>
+                    <span className="font-medium text-slate-800 truncate group-hover:text-indigo-600 transition-colors">{item.sourceName}</span>
                   </div>
                   <span className="text-[11px] font-semibold text-emerald-600 shrink-0 ml-2">
-                    {item.relevanceScore}%
+                    {item.relevanceScore}% ↗
                   </span>
-                </div>
+                </a>
               ))}
             </div>
           ) : (

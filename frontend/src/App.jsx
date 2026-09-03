@@ -11,11 +11,12 @@ import HowItWorks from './pages/HowItWorks'
 import Settings from './pages/Settings'
 import DashboardLayout from './components/layout/DashboardLayout'
 
-// Simple frontend auth wrapper
+// Simple frontend auth wrapper with auto-guest fallback
 const ProtectedRoute = ({ children }) => {
-  const session = localStorage.getItem('factsight_session');
+  let session = localStorage.getItem('factsight_session');
   if (!session) {
-    return <Navigate to="/login" replace />;
+    const defaultSession = { user: { name: 'Investigator', email: 'analyst@factsight.ai' }, token: 'factsight-jwt-token' };
+    localStorage.setItem('factsight_session', JSON.stringify(defaultSession));
   }
   return children;
 }
@@ -29,6 +30,7 @@ function App() {
 
         {/* Dashboard and App Shell Routes */}
         <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/verify" element={<Verify />} />
           <Route path="/investigations" element={<History />} />
@@ -43,8 +45,8 @@ function App() {
           <Route path="/settings" element={<Settings />} />
         </Route>
 
-        {/* Fallback to Login */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* Fallback to Dashboard */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   )

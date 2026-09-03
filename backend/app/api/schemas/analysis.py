@@ -11,7 +11,7 @@ Supports all 6 Input Modalities:
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 
 class AnalyzeRequest(BaseModel):
@@ -62,14 +62,25 @@ class AnalyzeResponse(BaseModel):
         ge=0.0,
         le=1.0,
         description="RAG semantic cosine alignment confidence (0.0-1.0)",
-        examples=[0.94],
+        examples=[0.884],
     )
     credibility_score: int = Field(
         ...,
         ge=1,
         le=10,
         description="AI-derived credibility score (1-10) based on vector consensus & manipulation checks.",
-        examples=[1],
+        examples=[2],
+    )
+    credibility_score_pct: int = Field(
+        default=50,
+        ge=0,
+        le=100,
+        description="Real continuous credibility percentage (0-100%)",
+        examples=[18],
+    )
+    detailed_explanation: Optional[str] = Field(
+        None,
+        description="Comprehensive narrative explanation synthesizing evidence and stating why the claim is fake/genuine",
     )
     main_claim: Optional[str] = Field(
         None,
@@ -89,7 +100,7 @@ class AnalyzeResponse(BaseModel):
     )
     evidence: list[EvidenceItem] = Field(
         default_factory=list,
-        description="Verified evidence items retrieved from Database 2 (ChromaDB Vector Store)",
+        description="Verified evidence items retrieved from Database 2 (ChromaDB Vector Store) and Tavily Web Search",
     )
     evidence_status: str = Field(
         default="not_configured",
@@ -102,7 +113,7 @@ class AnalyzeResponse(BaseModel):
     model_version: str = Field(
         ...,
         description="Version identifier of the RAG engine",
-        examples=["rag-chromadb-minilm-v1"],
+        examples=["rag-tavily-hybrid-v1"],
     )
     metadata: Optional[Dict[str, Any]] = Field(
         default_factory=dict,

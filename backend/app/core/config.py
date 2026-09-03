@@ -34,9 +34,11 @@ _DEFAULT_DB_URL = _get_safe_db_url()
 class Settings:
     """Application settings from environment variables with sensible defaults."""
 
-    # Model
+    # Model / AI Search
     MODEL_PATH: str = os.getenv("MODEL_PATH", "microsoft/deberta-v3-base")
-    MODEL_VERSION: str = os.getenv("MODEL_VERSION", "deberta-v3-base-baseline-v1")
+    MODEL_VERSION: str = os.getenv("MODEL_VERSION", "rag-gemini-tavily-v2")
+    TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
     # Database — use safe path to avoid SQLite issues with OneDrive/virtualized folders
     DATABASE_URL: str = os.getenv("DATABASE_URL", _DEFAULT_DB_URL)
