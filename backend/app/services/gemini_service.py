@@ -160,13 +160,16 @@ Return a strict JSON object with this exact schema:
     def _fallback_understanding(self, text: str) -> Dict[str, Any]:
         """Rule-based fallback when Gemini API is offline or unreachable."""
         words = re.sub(r"[^\w\s]", " ", text).split()
+        from app.services.entity_extractor import get_entity_extractor
+        extractor = get_entity_extractor()
+        targeted_q = extractor.build_targeted_search_query(text)
         return {
             "primary_subject": words[0].capitalize() if words else "General Claim",
             "clean_claim": text.strip(),
             "is_time_sensitive": any(w in text.lower() for w in ["tomorrow", "today", "yesterday", "next week", "breaking"]),
             "logical_contradiction": False,
             "contradiction_explanation": "",
-            "optimized_tavily_search_queries": [f"{text[:50]} fact check 2026"],
+            "optimized_tavily_search_queries": [targeted_q],
         }
 
     def _fallback_verdict_synthesis(
@@ -274,11 +277,14 @@ Return a strict JSON object with this exact schema:
             }
 
         return {
-            "classification": "Genuine" if len(evidence) >= 2 else "Unverified",
-            "confidence": 0.85 if len(evidence) >= 2 else 0.50,
-            "credibility_score_pct": 88 if len(evidence) >= 2 else 50,
-            "detailed_explanation": f"Evaluated based on public archival corroboration. {direct_answer or ''}",
-            "key_findings": [direct_answer or "Corroborated across public reference records."],
+            "classification": "Unverified",
+            "confidence": 0.50,
+            "credibility_score_pct": 48,
+            "detailed_explanation": (
+                f"Multi-Source Assessment: Insufficient definitive evidence to independently confirm or refute this claim with high confidence. "
+                f"{direct_answer or 'Available public records do not establish this claim as an official verified fact.'}"
+            ),
+            "key_findings": [direct_answer or "No conclusive evidence found to corroborate this claim."],
         }
 
 

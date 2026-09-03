@@ -27,10 +27,13 @@ STOPWORDS = {
 }
 
 # Known prominent entity dictionary aliases
+# Known prominent entity dictionary aliases
 ENTITY_ALIASES = {
     "messi": "Lionel Messi",
     "ronaldo": "Cristiano Ronaldo",
     "modi": "Narendra Modi",
+    "rahul": "Rahul Gandhi",
+    "gandhi": "Rahul Gandhi",
     "trump": "Donald Trump",
     "biden": "Joe Biden",
     "putin": "Vladimir Putin",
@@ -90,24 +93,38 @@ class EntityExtractor:
         entities = entity_info["entities"]
         keywords = entity_info["keywords"]
 
-        # If known entity found (e.g. Lionel Messi), put entity first
+        # Preserve key governance / political predicates if present
+        text_lower = text.lower()
+        predicates = []
+        if "pm" in text_lower or "prime minister" in text_lower:
+            predicates.append("Prime Minister")
+        if "president" in text_lower:
+            predicates.append("President")
+        if "cure" in text_lower:
+            predicates.append("cure")
+        if "resign" in text_lower or "resigned" in text_lower:
+            predicates.append("resign")
+        if "election" in text_lower:
+            predicates.append("election")
+
         query_parts = []
         if entities:
             query_parts.extend(entities)
-        
-        # Add key action predicates (e.g., resign, retirement, visit, cure)
+        for p in predicates:
+            if p not in query_parts:
+                query_parts.append(p)
         for kw in keywords:
-            if kw not in " ".join(entities).lower() and kw not in query_parts:
+            if kw not in " ".join(query_parts).lower():
                 query_parts.append(kw)
 
         clean_query = " ".join(query_parts[:6])
         if not clean_query:
-            clean_query = text[:60]
+            clean_query = text
 
         return f"{clean_query} fact check {year}"
 
     def is_evidence_relevant(self, item: Dict[str, Any], entity_info: Dict[str, Any]) -> bool:
-        """Filter out irrelevant off-topic search results (e.g., random war news for a Messi query)."""
+        """Filter out irrelevant off-topic search results (e.g., random exam news for a leadership query)."""
         content = (
             item.get("title", "") + " " +
             item.get("snippet", "") + " " +
@@ -123,6 +140,11 @@ class EntityExtractor:
             for ent in entities:
                 entity_words.update(ent.split())
             if not any(ew in content for ew in entity_words if len(ew) > 2):
+                return False
+
+        # If leadership / political claim, reject articles that don't discuss politics/leadership
+        if any(w in keywords for w in ["pm", "prime", "minister", "president"]):
+            if not any(w in content for w in ["pm", "prime minister", "minister", "president", "election", "government", "parliament", "lok sabha"]):
                 return False
 
         # If no named entity, check that at least 25% of core keywords appear

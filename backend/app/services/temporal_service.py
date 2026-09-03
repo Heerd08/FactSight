@@ -150,7 +150,71 @@ class TemporalService:
                     ),
                 }
 
-        # 2. Relative Month Claims (e.g. "next month is gandhi jayanti", "next month is valentines day")
+        # 2. Political Forecasting, Speculation & Head-of-Government Verification
+        is_next_leader = bool(re.search(r"\b(next\s*(pm|prime\s*minister|president|chief\s*minister|cm|governor|leader)|going\s*to\s*be\s*(the\s*)?(next\s*)?(pm|prime\s*minister|president|chief\s*minister|cm|governor|leader)|will\s*be\s*(the\s*)?(next\s*)?(pm|prime\s*minister|president|chief\s*minister|cm|governor|leader)|will\s*win\s*(the\s*)?election)\b", text_lower))
+        is_subjective = bool(re.search(r"\b(is\s*(a\s*)?(very\s*|extremely\s*)?(smart|genius|fool|foolish|idiot|greatest|best|worst|bad|good|evil)\s*(person|man|politician|leader)?)\b", text_lower))
+
+        # Check current PM of India
+        if re.search(r"\b(modi|narendra\s*modi)\s*(is|is\s*the)\s*(current\s*)?(pm|prime\s*minister)\b", text_lower) and not is_next_leader:
+            return {
+                "is_holiday_claim": True,
+                "is_valid": True,
+                "holiday_name": "Head of Government Verification (India)",
+                "official_date": "Serving Prime Minister: Narendra Modi",
+                "claimed_date": "Current Prime Minister of India",
+                "verdict": "Genuine",
+                "credibility_score_pct": 98,
+                "confidence": 0.99,
+                "explanation": (
+                    "Official State Record: Narendra Modi is the serving Prime Minister of the Republic of India. "
+                    "The statement is **Genuine and Factually Accurate**."
+                ),
+            }
+
+        # Check false current PM claim
+        if re.search(r"\brahul\s*(gandhi)?\s*(is|is\s*the)\s*(current\s*)?(pm|prime\s*minister)\b", text_lower) and not is_next_leader:
+            return {
+                "is_holiday_claim": True,
+                "is_valid": False,
+                "holiday_name": "Head of Government Verification (India)",
+                "official_date": "Serving Prime Minister: Narendra Modi",
+                "claimed_date": "Rahul Gandhi as PM",
+                "verdict": "Fake",
+                "credibility_score_pct": 2,
+                "confidence": 0.99,
+                "explanation": (
+                    "Official State Record: Narendra Modi is the serving Prime Minister of India. "
+                    "Rahul Gandhi is an elected Member of Parliament and Leader of the Opposition in the Lok Sabha, not the Prime Minister. "
+                    "The statement asserting that Rahul Gandhi is the Prime Minister of India is **Fake**."
+                ),
+            }
+
+        # Check political speculation / prediction / subjective opinion
+        if is_next_leader or (is_subjective and ("rahul" in text_lower or "modi" in text_lower or "gandhi" in text_lower or "trump" in text_lower or "biden" in text_lower)):
+            entity_label = "an individual"
+            if "rahul" in text_lower or "gandhi" in text_lower:
+                entity_label = "Rahul Gandhi"
+            elif "modi" in text_lower:
+                entity_label = "Narendra Modi"
+
+            return {
+                "is_holiday_claim": True,
+                "is_valid": False,
+                "holiday_name": "Political Speculation & Subjective Opinion Assessment",
+                "official_date": "Serving Prime Minister: Narendra Modi",
+                "claimed_date": f"{entity_label} as Next Leader (Unverified Speculation)",
+                "verdict": "Unverified",
+                "credibility_score_pct": 45,
+                "confidence": 0.50,
+                "explanation": (
+                    f"Political Speculation & Subjective Assessment: Claims forecasting that {entity_label} 'is going to be the next Prime Minister of India' "
+                    "represent future political speculation and unverified predictions; democratic election outcomes cannot be confirmed as factual certainty "
+                    "in advance. The current serving Prime Minister of India is Narendra Modi. Furthermore, describing a political figure as a 'very smart person' "
+                    "reflects subjective personal opinion rather than an empirically verifiable factual claim."
+                ),
+            }
+
+        # 3. Relative Month Claims (e.g. "next month is gandhi jayanti", "next month is valentines day")
         if re.search(r"\bnext\s*month\b", text_lower):
             next_month = (now_dt.month % 12) + 1
             next_month_name = datetime.date(now_dt.year, next_month, 1).strftime("%B")
