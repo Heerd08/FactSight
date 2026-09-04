@@ -43,6 +43,7 @@ class AISearchAgent:
         claim: str,
         content_type: str = "text",
         max_results: int = 5,
+        modality_metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Execute autonomous Dual-AI search and evidence-grounded conclusion."""
         claim_clean = claim.strip()
@@ -134,6 +135,8 @@ class AISearchAgent:
             tavily_evidence=relevant_evidence,
             direct_answer=direct_answer,
             current_date_str=now_ctx["formatted_date"],
+            content_type=content_type,
+            visual_metadata=modality_metadata,
         )
 
         verdict = synthesis_result.get("classification", "Unverified")

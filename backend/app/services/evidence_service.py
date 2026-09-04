@@ -27,7 +27,12 @@ class EvidenceService:
         self.search_agent = get_ai_search_agent()
         self.temporal_service = get_temporal_service()
 
-    def retrieve_evidence(self, claim: str, content_type: str = "text") -> Dict[str, Any]:
+    def retrieve_evidence(
+        self,
+        claim: str,
+        content_type: str = "text",
+        modality_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Retrieve verified evidence across Gemini query deconstruction and Tavily live search."""
         claim_cleaned = claim.strip()
         if not claim_cleaned:
@@ -35,7 +40,12 @@ class EvidenceService:
 
         # Step 1: Run Gemini + Tavily Dual-AI Agent Search
         logger.info(f"Executing Gemini + Tavily Search for input ({content_type}): '{claim_cleaned[:80]}...'")
-        agent_result = self.search_agent.search_and_conclude(claim_cleaned, content_type=content_type, max_results=4)
+        agent_result = self.search_agent.search_and_conclude(
+            claim_cleaned,
+            content_type=content_type,
+            max_results=4,
+            modality_metadata=modality_metadata,
+        )
         agent_evidence = agent_result.get("evidence", [])
         agent_verdict = agent_result.get("verdict")
         agent_confidence = agent_result.get("confidence", 0.90)

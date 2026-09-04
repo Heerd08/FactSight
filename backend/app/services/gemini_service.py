@@ -37,10 +37,13 @@ class GeminiService:
         mime_type: str = "image/jpeg",
         current_date_str: str = "September 04, 2026",
     ) -> Dict[str, Any]:
-        """Use Gemini Multimodal Vision API to perform OCR and synthesize the core claim and search queries from an image."""
+        """Use Gemini Multimodal Vision API to perform deep OCR, detect visual manipulation, and synthesize the core claim."""
         if not self.is_available():
             return {
                 "extracted_text": "",
+                "visual_description": "Visual input",
+                "visual_manipulation_flags": [],
+                "is_manipulative_visual": False,
                 "extracted_claim": "Image claim (Gemini API unavailable)",
                 "detected_language": "English",
                 "primary_subject": "Visual Claim",
@@ -59,19 +62,26 @@ class GeminiService:
         else:
             base64_data = image_base64
 
-        prompt = f"""You are FactSight's Visual Misinformation & Multimodal OCR Intelligence Agent.
+        prompt = f"""You are FactSight's Senior Visual Misinformation & Multimodal Forensics Agent.
 The current real-time ground truth date is: {current_date_str}.
 
-Inspect this uploaded image thoroughly:
-1. Transcribe all visible text, headlines, subtitles, watermarks, or social media overlays.
-2. Analyze any visual cues, documents, graphs, public figures, or events depicted.
-3. Synthesize the single core factual claim being asserted by or within this image into clear, normal text that can be used directly for fact-checking.
+Examine this image with forensic precision:
+1. Complete OCR: Transcribe every piece of visible text, headlines, subtitles, captions, handles, watermarks, timestamps, and numbers.
+2. Visual Forensic Inspection:
+   - Is this a screenshot of a social media post (X/Twitter, Instagram, WhatsApp, Facebook, TikTok)? Check for signs of manipulation (misaligned fonts, fake verified badge, edited timestamps, doctored usernames).
+   - Is this an infographic, chart, or graph? Check for deceptive axes, cherry-picked date ranges, exaggerated percentages, or missing baselines.
+   - Is this a meme, satirical graphic, or commercial promotion presented as genuine breaking news?
+   - Are there photoshopped elements, out-of-context images, or false attribution overlays?
+3. Synthesize the single core factual claim being asserted by or within this image into clear, normal, unambiguous text suitable for fact-checking.
 4. Detect the primary language of the text/content in the image.
 5. Generate 2-3 clean, high-precision search queries specifically tailored for Tavily Web Search to verify the claim.
 
 Return a strict JSON object with this exact schema:
 {{
   "extracted_text": "all transcribed text from the image",
+  "visual_description": "concise description of visual scene, layout, and entities",
+  "visual_manipulation_flags": ["e.g. Altered Social Media Timestamp", "Manipulated Graph Y-Axis", "None"],
+  "is_manipulative_visual": boolean,
   "extracted_claim": "concise, normalized factual claim statement",
   "detected_language": "English | German | Spanish | French | Hindi | etc.",
   "primary_subject": "main entity or subject",
@@ -106,7 +116,7 @@ Return a strict JSON object with this exact schema:
                     data = json.loads(res.read().decode("utf-8"))
                     text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
                     parsed = json.loads(text_resp)
-                    logger.info(f"Gemini image OCR ({model_name}) extracted claim: '{parsed.get('extracted_claim')}' (Language: {parsed.get('detected_language')})")
+                    logger.info(f"Gemini image forensics ({model_name}) extracted claim: '{parsed.get('extracted_claim')}' | Manipulative: {parsed.get('is_manipulative_visual')}")
                     return parsed
             except Exception as e:
                 logger.warning(f"Gemini extract_claim_from_image with {model_name} failed: {e}. Trying next model...")
@@ -115,10 +125,106 @@ Return a strict JSON object with this exact schema:
         logger.warning("All Gemini models failed for image claim extraction.")
         return {
             "extracted_text": "",
+            "visual_description": "Screenshot image",
+            "visual_manipulation_flags": [],
+            "is_manipulative_visual": False,
             "extracted_claim": "Visual claim from uploaded screenshot",
             "detected_language": "English",
             "primary_subject": "Image Submission",
             "search_queries": [],
+        }
+
+    def translate_social_content_to_claim(
+        self,
+        url: str,
+        platform: str,
+        metadata: Dict[str, Any],
+        web_snippets: List[Dict[str, Any]],
+        current_date_str: str = "September 04, 2026",
+    ) -> Dict[str, Any]:
+        """Use Gemini to translate viral social video/reel/post intelligence into a clear normal text claim for Tavily."""
+        if not self.is_available():
+            slug_claim = metadata.get("title") or metadata.get("slug") or url
+            return {
+                "video_title": metadata.get("title", ""),
+                "creator": metadata.get("author", ""),
+                "summary_of_content": slug_claim,
+                "normal_text_claim": slug_claim,
+                "detected_language": "English",
+                "primary_subject": platform,
+                "verification_queries": [f"{platform} viral claim fact check"],
+            }
+
+        snippets_text = "\n".join([
+            f"- [{s.get('title', '')}]: {s.get('snippet', '') or s.get('content', '')[:250]}"
+            for s in web_snippets[:5]
+        ])
+
+        prompt = f"""You are FactSight's Social Media & Viral Video Decoding Agent.
+Current ground-truth date is: {current_date_str}.
+
+The user provided a social media link ({platform}): {url}
+
+Extracted Metadata from URL:
+- Title / Headline: {metadata.get('title', 'None')}
+- Creator / Author: {metadata.get('author', 'Unknown')}
+- Caption / Description: {metadata.get('description', 'None')}
+- Tags / Keywords: {metadata.get('keywords', 'None')}
+
+Web Search Intelligence regarding this specific link or post:
+\"\"\"
+{snippets_text or 'No external web search snippets available.'}
+\"\"\"
+
+Analyze this video, reel, or post:
+1. Identify what this video, reel, or post is actually about (topic, speaker, visual event, context).
+2. Translate the content of this reel/video/post into clear, normal, unambiguous text.
+3. Formulate the core factual assertion or claim being made in the video so that it can be checked for misinformation.
+4. Detect the primary language.
+5. Generate 2-3 clean, high-precision search queries specifically tailored for Tavily Web Search to fact-check whether the claim in this video is genuine, misleading, or fake.
+
+Return a strict JSON object with this exact schema:
+{{
+  "video_title": "string",
+  "creator": "string",
+  "summary_of_content": "clear explanation of what happens or is said in the video",
+  "normal_text_claim": "concise, normalized factual claim statement",
+  "detected_language": "English | German | Spanish | French | Hindi | etc.",
+  "primary_subject": "main entity or subject",
+  "verification_queries": ["query 1", "query 2"]
+}}
+"""
+        for model_name in GEMINI_MODELS:
+            try:
+                url_api = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"response_mime_type": "application/json"}
+                }
+                req = urllib.request.Request(
+                    url_api,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=18) as res:
+                    data = json.loads(res.read().decode("utf-8"))
+                    text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
+                    parsed = json.loads(text_resp)
+                    logger.info(f"Gemini translated {platform} video/reel ({model_name}) into claim: '{parsed.get('normal_text_claim')}'")
+                    return parsed
+            except Exception as e:
+                logger.warning(f"Gemini translate_social_content_to_claim with {model_name} failed: {e}. Trying next model...")
+                continue
+
+        slug_fallback = metadata.get("title") or metadata.get("description") or f"Viral video from {platform}"
+        return {
+            "video_title": metadata.get("title", ""),
+            "creator": metadata.get("author", ""),
+            "summary_of_content": slug_fallback,
+            "normal_text_claim": slug_fallback,
+            "detected_language": "English",
+            "primary_subject": platform,
+            "verification_queries": [f"{platform} viral claim fact check"],
         }
 
     def analyze_and_formulate_queries(
@@ -127,21 +233,33 @@ Return a strict JSON object with this exact schema:
         content_type: str = "text",
         current_date_str: str = "September 04, 2026",
     ) -> Dict[str, Any]:
-        """Use Gemini to deconstruct raw input, detect language, and formulate targeted Tavily queries."""
+        """Use Gemini to deconstruct raw input, detect language, evaluate URL headline vs body framing, and formulate targeted Tavily queries."""
         if not self.is_available():
             return self._fallback_understanding(input_text)
 
-        prompt = f"""You are FactSight's Multilingual Claim Understanding Agent.
+        url_specific_guidance = ""
+        if content_type == "url":
+            url_specific_guidance = """
+SPECIAL URL ARTICLE ANALYSIS:
+The input contains the headline and text of a web article or news report.
+1. Carefully compare the Article Headline / Title against the Article Body.
+2. Check for Clickbait or Sensationalist Headline Distortion: Does the headline make an absolute, alarming, or exaggerated claim that the body text softens, qualifies, or fails to support?
+3. Check for Out-of-Context Reporting: Does the article present a local recommendation or proposal as a nationwide law?
+4. Identify any selective framing or omission of critical nuance.
+"""
+
+        prompt = f"""You are FactSight's Multilingual Claim Understanding & Misinformation Analysis Agent.
 The user provided the following input (Content Type: {content_type}):
 \"\"\"{input_text}\"\"\"
 
 The current real-time ground truth date is: {current_date_str}.
+{url_specific_guidance}
 
 Analyze the input thoroughly:
 1. Detect the language of the user input (e.g. German, French, Spanish, Hindi, English, etc.).
 2. Extract the primary subject/entity (e.g., "Lionel Messi", "Narendra Modi", "NASA", "US President").
 3. Extract the core factual claim being asserted, both in its original language and translated to English for global search indexing.
-4. Check if there are any internal logical contradictions or timeline impossibilities.
+4. Check if there are any internal logical contradictions, timeline impossibilities, or clickbait headline-body discrepancies.
 5. Identify if it is time-sensitive (references to today, tomorrow, this week, upcoming, breaking).
 6. Generate 2-3 clean, high-precision search queries specifically designed for Tavily Web Search. If the input is in a non-English language, provide both a native-language search query and an English query to maximize evidence retrieval.
 
@@ -154,6 +272,8 @@ Return a strict JSON object with this exact schema:
   "is_time_sensitive": boolean,
   "logical_contradiction": boolean,
   "contradiction_explanation": "string or empty",
+  "headline_body_discrepancy": boolean,
+  "framing_analysis": "string describing whether headline is clickbait/misleading compared to body text",
   "optimized_tavily_search_queries": ["query 1", "query 2"]
 }}
 """
@@ -189,8 +309,10 @@ Return a strict JSON object with this exact schema:
         tavily_evidence: List[Dict[str, Any]],
         direct_answer: Optional[str] = None,
         current_date_str: str = "September 04, 2026",
+        content_type: str = "text",
+        visual_metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Use Gemini as Senior Arbiter to evaluate Tavily evidence, confirm accuracy, and generate verdicts in the user's input language."""
+        """Use Gemini as Senior Arbiter to evaluate Tavily evidence, confirm accuracy, distinguish Misleading vs Fake vs Genuine, and generate verdicts in the user's input language."""
         if not self.is_available() or not tavily_evidence:
             return self._fallback_verdict_synthesis(claim, understanding, tavily_evidence, direct_answer)
 
@@ -201,14 +323,19 @@ Return a strict JSON object with this exact schema:
             )
 
         detected_lang = understanding.get("detected_language", "English")
+        framing_analysis = understanding.get("framing_analysis", "")
+        visual_flags = visual_metadata.get("visual_manipulation_flags", []) if visual_metadata else []
 
         prompt = f"""You are FactSight's Senior Misinformation Arbiter & Multilingual Verification Engine.
 Current ground-truth date is: {current_date_str}.
 
-User Input Claim:
+Input Modality: {content_type}
+User Input Claim / Content:
 \"\"\"{claim}\"\"\"
 Subject Identified: {understanding.get('primary_subject', 'General')}
 Detected Language: {detected_lang}
+Headline / Framing Analysis: {framing_analysis or 'Standard text claim'}
+Visual Forensic Flags: {visual_flags or 'None'}
 
 Tavily Live Web Search Results:
 \"\"\"
@@ -217,23 +344,28 @@ Direct Answer: {direct_answer or 'None'}
 {chr(10).join(evidence_snippets)}
 \"\"\"
 
-CRITICAL CLASSIFICATION & MULTILINGUAL RULES:
+CRITICAL ARBITRATION & CLASSIFICATION RULES:
 1. REVIEW TAVILY: Review Tavily's direct answer and retrieved sources. Confirm whether Tavily's findings are accurate, relevant, and reliable, or if Tavily is off-topic, incomplete, or misunderstanding the claim.
-2. CLASSIFICATION TOKENS (MUST BE IN ENGLISH):
-   Evaluate the claim and classify it into EXACTLY ONE of these 4 distinct categories (keep the token in English for UI badge rendering):
+2. PRECISE 4-TIER CLASSIFICATION (KEEP TOKEN IN ENGLISH FOR UI BADGES):
    - "Genuine" (Credibility: 85% - 99%):
-     The claim is factually accurate, confirmed by authoritative records, and contains no deceit or manipulative distortion.
+     The claim or article is factually accurate, supported by authoritative records, and contains NO deceit, clickbait distortion, or manipulative misrepresentation.
    - "Misleading" (Credibility: 25% - 45%):
-     MANDATORY: DO NOT classify as "Fake" if there is an underlying real event, real advisory, real policy, or partial factual basis. Classify as "Misleading" if the claim contains manipulative framing, partial truths, exaggerated statistics, out-of-context quotes, cherry-picked data, sensationalized headlines, or distortions of actual facts (e.g. inflating a local guideline into a nationwide ban).
+     CRITICAL REQUIREMENT: DO NOT classify as "Fake" or "Genuine" if there is partial truth or a real event that has been distorted.
+     Classify as "Misleading" if:
+     * (For URLs): The article headline is clickbait, sensationalized, or asserts a conclusion not backed by the body text; or inflates a local proposal into a nationwide policy.
+     * (For Images/Screenshots): The graphic cherry-picks data, distorts chart axes, takes a real image out of its true historical context, or pairs a real photo with a false caption.
+     * (For Social Reels/Videos): The video takes real footage out of context, makes sweeping unproven claims from an isolated incident, or exaggerates scientific/economic facts.
+     * (General): The claim contains half-truths, exaggerated numbers, or selective omission of critical context.
    - "Fake" (Credibility: 1% - 15%):
-     The claim is completely fabricated out of thin air, a complete hoax, medical quackery with zero basis, an event that never occurred at all, or a demonstrably disproven myth.
+     The claim is completely fabricated out of thin air, a complete hoax, medical quackery with zero basis, a completely doctored/fabricated screenshot, or an event that never occurred at all.
    - "Unverified" (Credibility: 45% - 55%):
      Future political predictions, unconfirmed election speculation, subjective opinions, or claims lacking sufficient public evidence.
-3. MANIPULATION DETECTION: Identify any specific manipulation or deception technique present (e.g. "Exaggeration / Overgeneralization", "Out-of-Context Framing", "Cherry-Picking Statistics", "False Medical Remedy", "Sensationalist Framing", or "None").
+3. MANIPULATION DETECTION:
+   Identify the precise technique: e.g. "Clickbait / Exaggerated Headline Distortion", "Context Distortion / Selective Framing", "Manipulated Infographic / Deceptive Axes", "Doctored Social Media Screenshot", "Sensationalist Framing", or "None".
 4. MULTILINGUAL EXPLANATION IN USER'S NATIVE LANGUAGE:
-   The user entered this claim in {detected_lang}.
+   The user entered this content in {detected_lang}.
    You MUST write the entire "detailed_explanation" and all items in "key_findings" in fluent, natural, grammatically correct {detected_lang}!
-   For example, if {detected_lang} is German, write the detailed explanation and key findings entirely in German. If French, in French. If Spanish, in Spanish. If Hindi, in Hindi.
+   If {detected_lang} is German, write in German. If French, in French. If Spanish, in Spanish. If Hindi, in Hindi.
 
 Respond in strict JSON adhering to this schema:
 {{

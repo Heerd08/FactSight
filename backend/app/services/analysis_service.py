@@ -85,8 +85,11 @@ class AnalysisService:
                     manipulation_indicators.append(flag)
 
         # Step 3: Query Multi-tier Knowledge Base (Gemini Pre-Analysis + Tavily Live Search)
-        search_query = claim_text[:500]
-        evidence_result = self.evidence_service.retrieve_evidence(search_query, content_type=content_type)
+        evidence_result = self.evidence_service.retrieve_evidence(
+            claim_text,
+            content_type=content_type,
+            modality_metadata=modality_metadata,
+        )
         evidence_status = evidence_result.get("status", "not_configured")
         rag_consensus = evidence_result.get("consensus_verdict")
         rag_similarity = evidence_result.get("max_similarity", 0.0)
@@ -108,6 +111,12 @@ class AnalysisService:
             if gemini_manip and gemini_manip.lower() not in ["none", "n/a"]:
                 if gemini_manip not in manipulation_indicators:
                     manipulation_indicators.append(gemini_manip)
+
+            # Incorporate visual manipulation flags if present from image extraction
+            if "visual_manipulation_flags" in modality_metadata:
+                for v_flag in modality_metadata["visual_manipulation_flags"]:
+                    if v_flag and v_flag.lower() not in ["none", "n/a"] and v_flag not in manipulation_indicators:
+                        manipulation_indicators.append(v_flag)
         else:
             classification, confidence = self.credibility_service.evaluate_rag_classification(
                 evidence_status=evidence_status,
