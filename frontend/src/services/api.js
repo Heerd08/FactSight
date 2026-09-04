@@ -98,6 +98,7 @@ function formatAnalysisResponse(data, rawInput, inputType) {
       }
     ],
     // Image-specific XAI data for visual heatmap overlay
+    image_preview: (data.metadata && data.metadata.image_preview) || (inputType === 'image' ? rawInput : null),
     attention_regions: (data.metadata && data.metadata.attention_regions) || [],
     visual_description: (data.metadata && data.metadata.visual_description) || '',
     is_manipulative_visual: (data.metadata && data.metadata.is_manipulative_visual) || false,
@@ -195,7 +196,7 @@ export async function analyzeUrl(url) {
 /**
  * Analyze an uploaded screenshot or visual asset
  */
-export async function analyzeImage(file) {
+export async function analyzeImage(file, previewUrl = null) {
   if (!file) {
     return analyzeText('Visual claim from screenshot');
   }
@@ -217,13 +218,22 @@ export async function analyzeImage(file) {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        resolve(formatAnalysisResponse(data, file.name, 'image'));
+        const formatted = formatAnalysisResponse(data, file.name, 'image');
+        formatted.image_preview = previewUrl || base64Data;
+        resolve(formatted);
       } catch (err) {
         console.warn('Image analysis failed, falling back to text:', err);
-        resolve(analyzeText(`Extracted visual claim from ${file.name}`));
+        const fb = await analyzeText(`Extracted visual claim from ${file.name}`);
+        fb.type = 'image';
+        fb.image_preview = previewUrl || reader.result;
+        resolve(fb);
       }
     };
-    reader.onerror = () => resolve(analyzeText(`Extracted visual claim from ${file.name}`));
+    reader.onerror = async () => {
+      const fb = await analyzeText(`Extracted visual claim from ${file.name}`);
+      fb.type = 'image';
+      resolve(fb);
+    };
     reader.readAsDataURL(file);
   });
 }

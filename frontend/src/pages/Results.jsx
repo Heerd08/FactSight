@@ -34,14 +34,23 @@ export default function Results() {
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Retrieve state passed from Dashboard
-  const passedData = location.state?.data || {
+  // Retrieve state passed via navigation or fallback to most recent investigation from history
+  const history = JSON.parse(localStorage.getItem('factsight_history') || '[]');
+  const latestHistory = history[0];
+
+  const passedData = location.state?.data || (latestHistory ? {
+    type: latestHistory.type || 'text',
+    content: latestHistory.title,
+    submittedAt: latestHistory.timestamp || 'Recently',
+    preview: latestHistory.preview || latestHistory.fullResult?.image_preview,
+    fileName: latestHistory.fileName
+  } : {
     type: 'text',
     content: 'Global clean energy investments reached an all-time record in 2025 according to accredited international monitoring agencies.',
     submittedAt: 'Today',
-  };
+  });
 
-  const result = location.state?.result || {
+  const result = location.state?.result || latestHistory?.fullResult || {
     id: 'FSA-2026-9042',
     classification: 'Genuine',
     confidence: 0.94,
@@ -113,6 +122,8 @@ export default function Results() {
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const isImageResult = passedData.type === 'image' || result.type === 'image' || Boolean(passedData.preview || result.image_preview);
+
   return (
     <div className="space-y-8 pb-12">
       {/* Top Action Bar */}
@@ -183,39 +194,38 @@ export default function Results() {
             {typeof passedData.content === 'string' ? passedData.content : 'Image / Media Submission'}
           </div>
 
-          {passedData.preview && (
+          {(passedData.preview || result.image_preview) && (
             <div className="mt-3 flex justify-center bg-slate-100 rounded-xl p-3 max-h-60 overflow-hidden">
-              <img src={passedData.preview} alt="Submitted Preview" className="max-h-56 object-contain rounded" />
+              <img src={passedData.preview || result.image_preview} alt="Submitted Preview" className="max-h-56 object-contain rounded" />
             </div>
           )}
         </div>
       </Card>
 
-      {/* Visual Attention Heatmap for Image Inputs */}
-      {passedData.type === 'image' && passedData.preview && (
+      {/* Conditional Heatmap: ONLY Image Heatmap for Images, ONLY Word Heatmap for Text */}
+      {isImageResult ? (
         <XAIImageHeatmap
-          imagePreview={passedData.preview}
+          imagePreview={passedData.preview || result.image_preview}
           attentionRegions={result.attention_regions || []}
           classification={result.classification || 'Genuine'}
           credibilityScore={result.credibilityScore || 85}
           visualDescription={result.visual_description || ''}
           isManipulativeVisual={result.is_manipulative_visual || false}
         />
+      ) : (
+        <XAIWordHeatmap
+          content={typeof passedData.content === 'string' ? passedData.content : (result.aiExplanation?.mainClaim || '')}
+          evidence={result.evidence || []}
+          suspiciousPhrases={result.suspicious_phrases || []}
+          verifiedPhrases={result.verified_phrases || []}
+          unattributedPhrases={result.unattributed_phrases || []}
+          redFlags={result.red_flags || []}
+          contradictingEvidence={result.aiExplanation?.contradictingEvidence || []}
+          supportingEvidence={result.aiExplanation?.supportingEvidence || []}
+          classification={result.classification || 'Genuine'}
+          credibilityScore={result.credibilityScore || 85}
+        />
       )}
-
-      {/* Interactive Explainable AI (XAI) Word Heatmap */}
-      <XAIWordHeatmap
-        content={typeof passedData.content === 'string' ? passedData.content : (result.aiExplanation?.mainClaim || '')}
-        evidence={result.evidence || []}
-        suspiciousPhrases={result.suspicious_phrases || []}
-        verifiedPhrases={result.verified_phrases || []}
-        unattributedPhrases={result.unattributed_phrases || []}
-        redFlags={result.red_flags || []}
-        contradictingEvidence={result.aiExplanation?.contradictingEvidence || []}
-        supportingEvidence={result.aiExplanation?.supportingEvidence || []}
-        classification={result.classification || 'Genuine'}
-        credibilityScore={result.credibilityScore || 85}
-      />
 
       {/* Key Takeaway Card */}
       <KeyTakeaway takeaway={result.keyTakeaway} />

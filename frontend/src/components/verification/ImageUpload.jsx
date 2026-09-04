@@ -44,7 +44,16 @@ export default function ImageUpload({ onAnalyze, isLoading }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!file) return;
-    onAnalyze({ type: 'image', file, preview, fileName: file.name });
+    if (!preview) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result);
+        onAnalyze({ type: 'image', file, preview: reader.result, fileName: file.name });
+      };
+      reader.readAsDataURL(file);
+    } else {
+      onAnalyze({ type: 'image', file, preview, fileName: file.name });
+    }
   };
 
   return (

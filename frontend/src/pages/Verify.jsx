@@ -56,7 +56,7 @@ export default function Verify() {
           result = await analyzeUrl(data.content);
           break;
         case 'image':
-          result = await analyzeImage(data.file);
+          result = await analyzeImage(data.file, data.preview);
           break;
         case 'email':
           result = await analyzeEmail(data.content);
@@ -68,7 +68,13 @@ export default function Verify() {
           result = await analyzeText(data.content);
       }
 
-      setSubmittedData(data);
+      const activePreview = data.preview || result.image_preview;
+      const normalizedSubmittedData = {
+        ...data,
+        preview: activePreview
+      };
+
+      setSubmittedData(normalizedSubmittedData);
       setAnalysisResult(result);
 
       // Save to local session history for easy review
@@ -79,7 +85,12 @@ export default function Verify() {
         classification: result.classification || 'Genuine',
         credibilityScore: result.credibilityScore || 85,
         timestamp: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        fullResult: result
+        preview: activePreview,
+        fileName: data.fileName,
+        fullResult: {
+          ...result,
+          image_preview: activePreview
+        }
       };
 
       const existingHistory = JSON.parse(localStorage.getItem('factsight_history') || '[]');
@@ -99,6 +110,30 @@ export default function Verify() {
     setApiNotice('');
   };
 
+  const handleGoToHeatmap = () => {
+    if (submittedData && analysisResult) {
+      navigate('/results', { state: { data: submittedData, result: analysisResult } });
+    } else {
+      const history = JSON.parse(localStorage.getItem('factsight_history') || '[]');
+      const latest = history[0];
+      if (latest && latest.fullResult) {
+        navigate('/results', {
+          state: {
+            data: {
+              type: latest.type,
+              content: latest.title,
+              preview: latest.preview,
+              fileName: latest.fileName
+            },
+            result: latest.fullResult
+          }
+        });
+      } else {
+        navigate('/results');
+      }
+    }
+  };
+
   return (
     <div className="space-y-8 pb-12 pt-6">
       {/* Page Header */}
@@ -116,8 +151,8 @@ export default function Verify() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/results')}
-            className="border-tan/40 text-tan hover:bg-tan/10 font-bold tracking-wider text-xs uppercase flex items-center gap-1.5"
+            onClick={handleGoToHeatmap}
+            className="border-tan/40 text-tan hover:bg-tan/10 font-bold tracking-wider text-xs uppercase flex items-center gap-1.5 cursor-pointer"
           >
             <Flame className="w-3.5 h-3.5 text-amber-400" />
             <span>Interactive Heatmap</span>
@@ -207,31 +242,30 @@ export default function Verify() {
           {/* Key Takeaway Banner */}
           <KeyTakeaway takeaway={analysisResult.keyTakeaway} />
 
-          {/* Visual Attention Heatmap for Image Inputs */}
-          {submittedData.type === 'image' && submittedData.preview && (
+          {/* Conditional Heatmap: Image Heatmap for Images, Word Heatmap for Text */}
+          {(submittedData.type === 'image' || submittedData.preview || analysisResult.image_preview) ? (
             <XAIImageHeatmap
-              imagePreview={submittedData.preview}
+              imagePreview={submittedData.preview || analysisResult.image_preview}
               attentionRegions={analysisResult.attention_regions || []}
               classification={analysisResult.classification || 'Genuine'}
               credibilityScore={analysisResult.credibilityScore || 85}
               visualDescription={analysisResult.visual_description || ''}
               isManipulativeVisual={analysisResult.is_manipulative_visual || false}
             />
+          ) : (
+            <XAIWordHeatmap
+              content={typeof submittedData.content === 'string' ? submittedData.content : (analysisResult.aiExplanation?.mainClaim || '')}
+              evidence={analysisResult.evidence || []}
+              suspiciousPhrases={analysisResult.suspicious_phrases || []}
+              verifiedPhrases={analysisResult.verified_phrases || []}
+              unattributedPhrases={analysisResult.unattributed_phrases || []}
+              redFlags={analysisResult.red_flags || []}
+              contradictingEvidence={analysisResult.aiExplanation?.contradictingEvidence || []}
+              supportingEvidence={analysisResult.aiExplanation?.supportingEvidence || []}
+              classification={analysisResult.classification || 'Genuine'}
+              credibilityScore={analysisResult.credibilityScore || 85}
+            />
           )}
-
-          {/* Interactive Explainable AI (XAI) Word Heatmap */}
-          <XAIWordHeatmap
-            content={typeof submittedData.content === 'string' ? submittedData.content : (analysisResult.aiExplanation?.mainClaim || '')}
-            evidence={analysisResult.evidence || []}
-            suspiciousPhrases={analysisResult.suspicious_phrases || []}
-            verifiedPhrases={analysisResult.verified_phrases || []}
-            unattributedPhrases={analysisResult.unattributed_phrases || []}
-            redFlags={analysisResult.red_flags || []}
-            contradictingEvidence={analysisResult.aiExplanation?.contradictingEvidence || []}
-            supportingEvidence={analysisResult.aiExplanation?.supportingEvidence || []}
-            classification={analysisResult.classification || 'Genuine'}
-            credibilityScore={analysisResult.credibilityScore || 85}
-          />
 
           {/* 4 Core Result Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
