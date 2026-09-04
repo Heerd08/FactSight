@@ -19,6 +19,7 @@ import Classification from '../components/results/Classification';
 import EvidenceSection from '../components/results/EvidenceSection';
 import SourceTrust from '../components/results/SourceTrust';
 import AIExplanation from '../components/results/AIExplanation';
+import XAIWordHeatmap from '../components/results/XAIWordHeatmap';
 import KeyTakeaway from '../components/results/KeyTakeaway';
 import Disclaimer from '../components/results/Disclaimer';
 import LoadingState from '../components/common/LoadingState';
@@ -191,6 +192,15 @@ export default function Verify() {
 
           {/* Key Takeaway Banner */}
           <KeyTakeaway takeaway={analysisResult.keyTakeaway} />
+
+          {/* Interactive Explainable AI (XAI) Word Heatmap */}
+          <XAIWordHeatmap
+            content={typeof submittedData.content === 'string' ? submittedData.content : (analysisResult.aiExplanation?.mainClaim || '')}
+            evidence={analysisResult.evidence || []}
+            suspiciousPhrases={analysisResult.suspicious_phrases || []}
+            classification={analysisResult.classification || 'Genuine'}
+            credibilityScore={analysisResult.credibilityScore || 85}
+          />
 
           {/* 4 Core Result Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

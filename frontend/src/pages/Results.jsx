@@ -19,6 +19,7 @@ import Classification from '../components/results/Classification';
 import EvidenceSection from '../components/results/EvidenceSection';
 import SourceTrust from '../components/results/SourceTrust';
 import AIExplanation from '../components/results/AIExplanation';
+import XAIWordHeatmap from '../components/results/XAIWordHeatmap';
 import ClaimBreakdown from '../components/results/ClaimBreakdown';
 import ManipulationIndicators from '../components/results/ManipulationIndicators';
 import MissingContext from '../components/results/MissingContext';
@@ -188,6 +189,15 @@ export default function Results() {
           )}
         </div>
       </Card>
+
+      {/* Interactive Explainable AI (XAI) Word Heatmap */}
+      <XAIWordHeatmap
+        content={typeof passedData.content === 'string' ? passedData.content : (result.aiExplanation?.mainClaim || '')}
+        evidence={result.evidence || []}
+        suspiciousPhrases={result.suspicious_phrases || []}
+        classification={result.classification || 'Genuine'}
+        credibilityScore={result.credibilityScore || 85}
+      />
 
       {/* Key Takeaway Card */}
       <KeyTakeaway takeaway={result.keyTakeaway} />
