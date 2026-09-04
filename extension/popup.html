@@ -3,60 +3,342 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FactSight AI</title>
+  <title>FactSight AI Extension</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    body { width: 360px; background: #F8F9FD; color: #0F172A; padding: 16px; }
-    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; }
-    .brand-badge { background: #6366F1; color: white; border-radius: 8px; padding: 4px 6px; font-size: 11px; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #10B981; display: inline-block; margin-right: 4px; }
-    .card { background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    textarea { width: 100%; height: 75px; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px; font-size: 12px; resize: none; outline: none; margin-bottom: 8px; }
-    textarea:focus { border-color: #6366F1; }
-    .btn { width: 100%; background: #6366F1; color: white; border: none; border-radius: 8px; padding: 9px; font-weight: 600; font-size: 12px; cursor: pointer; transition: 0.2s; }
-    .btn:hover { background: #4F46E5; }
-    .btn-secondary { background: #EEF2FF; color: #4F46E5; border: 1px solid #C7D2FE; margin-top: 6px; }
-    .btn-secondary:hover { background: #E0E7FF; }
-    .result-box { display: none; margin-top: 12px; }
-    .score-badge { display: inline-block; padding: 3px 8px; border-radius: 99px; font-weight: 700; font-size: 11px; }
-    .score-genuine { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
-    .score-fake { background: #FFF1F2; color: #E11D48; border: 1px solid #FECDD3; }
-    .score-unverified { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; }
-    .evidence-item { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 6px 8px; font-size: 11px; margin-top: 6px; }
-    .loader { display: none; text-align: center; padding: 12px; font-size: 12px; color: #6366F1; font-weight: 600; }
+    body {
+      width: 380px;
+      min-height: 480px;
+      background: #0B132B;
+      color: #F8FAFC;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+
+    /* Top Brand Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: -0.3px;
+    }
+    .brand-logo {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, #38BDF8, #0284C7);
+      color: #0B132B;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 900;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34D399;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 9999px;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10B981;
+      box-shadow: 0 0 6px #10B981;
+    }
+
+    /* Navigation Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: rgba(28, 39, 59, 0.6);
+      padding: 3px;
+      border-radius: 10px;
+      margin-bottom: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #94A3B8;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .tab-btn.active {
+      background: #38BDF8;
+      color: #0B132B;
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.3);
+    }
+
+    /* Cards */
+    .card {
+      background: #1C273B;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+
+    /* Inputs */
+    textarea {
+      width: 100%;
+      height: 70px;
+      background: rgba(11, 19, 43, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 10px;
+      color: #F8FAFC;
+      font-size: 12px;
+      resize: none;
+      outline: none;
+      margin-bottom: 10px;
+      transition: border-color 0.2s;
+    }
+    textarea:focus {
+      border-color: #38BDF8;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
+    }
+    .page-info {
+      font-size: 11px;
+      color: #94A3B8;
+      background: rgba(11, 19, 43, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 12px;
+      line-height: 1.4;
+      word-break: break-all;
+    }
+
+    /* Action Buttons */
+    .btn {
+      width: 100%;
+      background: #38BDF8;
+      color: #0B132B;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      font-weight: 800;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: #7DD3FC;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: #E2E8F0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      margin-top: 6px;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Loader */
+    .loader {
+      display: none;
+      text-align: center;
+      padding: 24px 12px;
+    }
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(56, 189, 248, 0.2);
+      border-top-color: #38BDF8;
+      border-radius: 50%;
+      margin: 0 auto 10px;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Result Box */
+    .result-box {
+      display: none;
+      margin-top: 10px;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .verdict-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    .verdict-genuine { background: rgba(16, 185, 129, 0.15); border: 1px solid #10B981; color: #34D399; }
+    .verdict-fake { background: rgba(239, 68, 68, 0.15); border: 1px solid #EF4444; color: #F87171; }
+    .verdict-misleading { background: rgba(245, 158, 11, 0.15); border: 1px solid #F59E0B; color: #FBBF24; }
+    .verdict-unverified { background: rgba(100, 116, 139, 0.2); border: 1px solid #64748B; color: #94A3B8; }
+
+    .score-circle {
+      font-size: 20px;
+      font-weight: 900;
+      color: #F8FAFC;
+    }
+
+    .badge-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+    .badge-manip {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #FCA5A5;
+    }
+
+    .evidence-item {
+      background: rgba(11, 19, 43, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 11px;
+      margin-top: 5px;
+    }
+
+    /* History List */
+    .history-item {
+      padding: 8px 10px;
+      background: rgba(11, 19, 43, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .history-item:hover {
+      background: rgba(56, 189, 248, 0.08);
+      border-color: rgba(56, 189, 248, 0.3);
+    }
   </style>
 </head>
 <body>
+  <!-- Header -->
   <div class="header">
     <div class="brand">
-      <span class="brand-badge">FS</span>
-      <span>FactSight <span style="color: #6366F1;">AI</span></span>
+      <div class="brand-logo">FS</div>
+      <span>FactSight <span style="color: #38BDF8;">AI</span></span>
     </div>
-    <div style="font-size: 10px; color: #059669; font-weight: 600;">
-      <span class="status-dot"></span>Pure RAG
+    <div class="status-pill" id="systemStatus">
+      <span class="status-dot"></span>
+      <span>AI Online</span>
     </div>
   </div>
 
-  <div class="card">
-    <textarea id="claimInput" placeholder="Paste claim or headline to verify..."></textarea>
-    <button class="btn" id="verifyBtn">Verify Text Claim</button>
-    <button class="btn btn-secondary" id="verifyTabBtn">Verify Current Page URL</button>
+  <!-- Navigation Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tabActivePage">Active Tab</button>
+    <button class="tab-btn" id="tabQuickVerify">Quick Claim</button>
+    <button class="tab-btn" id="tabHistory">Recent Scans</button>
   </div>
 
+  <!-- View 1: Active Tab -->
+  <div id="viewActivePage" class="card">
+    <div style="font-size: 11px; font-weight: 700; color: #38BDF8; margin-bottom: 6px;">CURRENT PAGE TARGET:</div>
+    <div class="page-info" id="activePageInfo">
+      <div id="activePageTitle" style="font-weight: 700; color: #F8FAFC; margin-bottom: 4px;">Loading tab...</div>
+      <div id="activePageUrl" style="color: #64748B; font-size: 10px;">--</div>
+    </div>
+    <button class="btn" id="scanPageBtn">⚡ Fact-Check Current Page</button>
+  </div>
+
+  <!-- View 2: Quick Verify -->
+  <div id="viewQuickVerify" class="card" style="display: none;">
+    <textarea id="claimInput" placeholder="Paste claim, viral headline, social link, or quote to verify..."></textarea>
+    <button class="btn" id="verifyClaimBtn">🔍 Run FactSight Verification</button>
+  </div>
+
+  <!-- View 3: Recent History -->
+  <div id="viewHistory" class="card" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <span style="font-size: 11px; font-weight: 700; color: #94A3B8;">SAVED LOCAL SCANS</span>
+      <button id="clearHistoryBtn" style="background: none; border: none; font-size: 10px; color: #64748B; cursor: pointer;">Clear All</button>
+    </div>
+    <div id="historyListContainer" style="max-height: 260px; overflow-y: auto;">
+      <div style="font-size: 11px; color: #64748B; text-align: center; padding: 20px 0;">No recent scans saved.</div>
+    </div>
+  </div>
+
+  <!-- Loader -->
   <div class="loader" id="loader">
-    Analyzing claim with ChromaDB RAG...
+    <div class="spinner"></div>
+    <div style="font-size: 13px; font-weight: 700; color: #38BDF8; margin-bottom: 4px;">Investigating Evidence</div>
+    <div style="font-size: 11px; color: #94A3B8;">Cross-referencing Tavily AI search and Senior Arbiter...</div>
   </div>
 
+  <!-- Result Box -->
   <div class="card result-box" id="resultCard">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-      <span style="font-size: 12px; font-weight: 700;" id="verdictLabel">Verdict</span>
-      <span class="score-badge" id="scoreBadge">Score: --</span>
+    <div class="verdict-banner" id="verdictBanner">
+      <div>
+        <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; opacity: 0.8;">Classification</div>
+        <div style="font-size: 16px; font-weight: 900;" id="verdictLabel">Genuine</div>
+      </div>
+      <div style="text-align: right;">
+        <div class="score-circle" id="scoreCircle">98%</div>
+        <div style="font-size: 9px; opacity: 0.8;">Credibility</div>
+      </div>
     </div>
-    <p style="font-size: 11px; color: #475569; line-height: 1.4; margin-bottom: 8px;" id="reasonsText"></p>
-    <div id="evidenceContainer"></div>
+
+    <div style="font-size: 11px; color: #CBD5E1; background: rgba(11,19,43,0.6); padding: 8px 10px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid #38BDF8;">
+      <strong>Claim:</strong> <span id="evaluatedClaimText"></span>
+    </div>
+
+    <p style="font-size: 11px; color: #94A3B8; line-height: 1.4; margin-bottom: 8px; max-height: 100px; overflow-y: auto;" id="explanationText"></p>
+
+    <div id="manipulationSection" style="margin-bottom: 8px; display: none;">
+      <div style="font-size: 10px; font-weight: 700; color: #94A3B8; margin-bottom: 4px;">SIGNALS DETECTED:</div>
+      <div id="manipulationContainer"></div>
+    </div>
+
+    <div id="evidenceSection" style="margin-bottom: 10px; display: none;">
+      <div style="font-size: 10px; font-weight: 700; color: #38BDF8; margin-bottom: 4px;">TOP CITATIONS:</div>
+      <div id="evidenceContainer"></div>
+    </div>
+
+    <a id="openWebAppBtn" href="http://127.0.0.1:5173/verify" target="_blank" class="btn btn-secondary" style="text-decoration: none;">
+      📊 View Full Investigation in Web App →
+    </a>
   </div>
 
   <script src="popup.js"></script>
 </body>
 </html>
+
