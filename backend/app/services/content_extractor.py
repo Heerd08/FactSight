@@ -316,6 +316,10 @@ class ContentExtractor:
                         "detected_language": ocr_res.get("detected_language", "English"),
                         "primary_subject": ocr_res.get("primary_subject", ""),
                         "gemini_search_queries": ocr_res.get("search_queries", []),
+                        "attention_regions": ocr_res.get("attention_regions", []),
+                        "visual_manipulation_flags": ocr_res.get("visual_manipulation_flags", []),
+                        "is_manipulative_visual": ocr_res.get("is_manipulative_visual", False),
+                        "visual_description": ocr_res.get("visual_description", ""),
                     })
                     logger.info(f"Successfully converted uploaded image to text claim via Gemini: '{claim}'")
             except Exception as e:

@@ -75,6 +75,11 @@ class EvidenceService:
             "gemini_understanding": agent_result.get("gemini_understanding"),
             "manipulation_type": agent_result.get("manipulation_type"),
             "tavily_verification": agent_result.get("tavily_verification"),
+            "reasons": agent_result.get("reasons", []),
+            "suspicious_phrases": agent_result.get("suspicious_phrases", []),
+            "disputed_phrases": agent_result.get("disputed_phrases", []),
+            "verified_phrases": agent_result.get("verified_phrases", []),
+            "unattributed_phrases": agent_result.get("unattributed_phrases", []),
         }
 
 

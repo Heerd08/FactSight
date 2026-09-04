@@ -145,15 +145,32 @@ class AnalysisService:
                 direct_answer=evidence_result.get("direct_answer") or evidence_result.get("conclusion"),
             )
 
-        reasons = self.credibility_service.generate_reasons(
-            classification=classification,
-            confidence=confidence,
-            evidence_status=evidence_status,
-            manipulation_indicators=manipulation_indicators,
-            suspicious_phrases=suspicious_phrases,
-            rag_consensus=rag_consensus,
-            rag_similarity=rag_similarity,
-        )
+        # Incorporate AI-identified disputed and verified phrases
+        ai_disputed = evidence_result.get("disputed_phrases") or evidence_result.get("suspicious_phrases") or []
+        for p in ai_disputed:
+            if p and p not in suspicious_phrases:
+                suspicious_phrases.append(p)
+
+        verified_phrases = evidence_result.get("verified_phrases") or []
+        unattributed_phrases = evidence_result.get("unattributed_phrases") or []
+
+        # If claim is Fake or Misleading and no suspicious phrases were identified, mark full claim
+        if classification in ["Fake", "Misleading"] and not suspicious_phrases:
+            suspicious_phrases.append(claim_text.strip())
+
+        ai_reasons = evidence_result.get("reasons")
+        if ai_reasons and len(ai_reasons) > 0 and not (len(ai_reasons) == 1 and "semantic alignment" in ai_reasons[0]):
+            reasons = ai_reasons
+        else:
+            reasons = self.credibility_service.generate_reasons(
+                classification=classification,
+                confidence=confidence,
+                evidence_status=evidence_status,
+                manipulation_indicators=manipulation_indicators,
+                suspicious_phrases=suspicious_phrases,
+                rag_consensus=rag_consensus,
+                rag_similarity=rag_similarity,
+            )
 
         recommendation = self.credibility_service.generate_recommendation(
             classification=classification,
@@ -172,11 +189,17 @@ class AnalysisService:
             reasons=reasons,
             suspicious_phrases=suspicious_phrases,
             manipulation_indicators=manipulation_indicators,
+            verified_phrases=verified_phrases,
+            unattributed_phrases=unattributed_phrases,
             evidence=[item.model_dump() for item in evidence_items],
             evidence_status=evidence_status,
             recommendation=recommendation,
             model_version=self.model_version,
-            metadata=modality_metadata,
+            metadata={
+                **modality_metadata,
+                "verified_phrases": verified_phrases,
+                "unattributed_phrases": unattributed_phrases,
+            },
         )
 
         # Step 8: Persist to Database 1 (Application DB)

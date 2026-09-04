@@ -83,6 +83,12 @@ function formatAnalysisResponse(data, rawInput, inputType) {
       evidenceQuality: evidenceList.length > 0 ? 'High' : 'Medium'
     },
     evidence: evidenceList,
+    suspicious_phrases: data.suspicious_phrases || [],
+    verified_phrases: data.verified_phrases || [],
+    unattributed_phrases: data.unattributed_phrases || [],
+    red_flags: data.red_flags || [],
+    reasons: reasons,
+    counter_evidence: data.counter_evidence || [],
     manipulationIndicators: manipulationIndicators,
     claimsBreakdown: [
       {
@@ -90,7 +96,11 @@ function formatAnalysisResponse(data, rawInput, inputType) {
         verdict: classification === 'Genuine' ? 'Supported' : classification === 'Fake' ? 'Contradicted' : 'Unverified',
         confidence: confPercent
       }
-    ]
+    ],
+    // Image-specific XAI data for visual heatmap overlay
+    attention_regions: (data.metadata && data.metadata.attention_regions) || [],
+    visual_description: (data.metadata && data.metadata.visual_description) || '',
+    is_manipulative_visual: (data.metadata && data.metadata.is_manipulative_visual) || false,
   };
 }
 

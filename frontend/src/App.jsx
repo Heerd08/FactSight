@@ -10,6 +10,7 @@ import SourceInsights from './pages/SourceInsights'
 import HowItWorks from './pages/HowItWorks'
 import Settings from './pages/Settings'
 import DashboardLayout from './components/layout/DashboardLayout'
+import { ThemeProvider } from './context/ThemeContext'
 
 // Simple frontend auth wrapper with auto-guest fallback
 const ProtectedRoute = ({ children }) => {
@@ -23,8 +24,9 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
         {/* Public Route */}
         <Route path="/login" element={<Login />} />
 
@@ -38,6 +40,8 @@ function App() {
           
           {/* Kept existing routes to prevent broken links */}
           <Route path="/results" element={<Results />} />
+          <Route path="/heatmap" element={<Results />} />
+          <Route path="/xai-heatmap" element={<Results />} />
           <Route path="/history" element={<History />} />
           <Route path="/saved-reports" element={<SavedReports />} />
           <Route path="/source-insights" element={<SourceInsights />} />
@@ -49,6 +53,7 @@ function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
+  </ThemeProvider>
   )
 }
 

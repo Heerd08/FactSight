@@ -15,12 +15,12 @@ export default function SourceInsights() {
 
   return (
     <div className="space-y-6 pb-12">
-      <div className="pb-2 border-b border-slate-200/60">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+      <div className="pb-3 border-b border-slate-200 dark:border-slate-gray/20">
+        <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 dark:text-white tracking-tight">
           Source Insights & Trust Directory
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Explore the verified publishers, scientific institutions, and fact-checking organizations in the FactSight knowledge base.
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-gray mt-1">
+          Explore verified publishers, scientific institutions, and fact-checking archives in the FactSight knowledge base.
         </p>
       </div>
 
@@ -32,26 +32,26 @@ export default function SourceInsights() {
                 <Badge variant="success" size="sm" icon={CheckCircle2}>
                   {s.rating} Trust
                 </Badge>
-                <span className="text-xs font-mono font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                <span className="text-xs font-mono font-extrabold text-indigo-600 dark:text-tan bg-indigo-50 dark:bg-tan/10 px-2 py-0.5 rounded border border-indigo-100 dark:border-tan/20">
                   {s.score}% Reliability
                 </span>
               </div>
 
               <div>
-                <h3 className="text-sm font-bold text-slate-900">{s.name}</h3>
-                <span className="text-[11px] text-slate-400 font-mono">{s.domain}</span>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">{s.name}</h3>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">{s.domain}</span>
               </div>
 
-              <p className="text-xs text-slate-500">{s.category}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{s.category}</p>
             </div>
 
-            <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <div className="pt-3 mt-3 border-t border-slate-100 dark:border-white/10 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
               <span>{s.checksCount} Indexed Citations</span>
               <a
                 href={`https://${s.domain}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center gap-1"
+                className="text-indigo-600 dark:text-tan hover:underline font-semibold inline-flex items-center gap-1"
               >
                 <span>Visit</span>
                 <ExternalLink className="w-3 h-3" />

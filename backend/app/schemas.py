@@ -222,4 +222,3 @@ class EmailVerifyRequest(BaseModel):
 
 class SocialVerifyRequest(BaseModel):
     socialUrl: str
-

@@ -11,7 +11,8 @@ import {
   Cpu,
   Globe2,
   Database,
-  Radio
+  Radio,
+  Flame
 } from 'lucide-react';
 import Button from '../components/common/Button';
 
@@ -121,14 +122,24 @@ export default function Dashboard() {
             Monitor your investigations, credibility assessments, and live active threats across the network.
           </p>
         </div>
-        <Button 
-          variant="primary" 
-          onClick={() => navigate('/verify')}
-          className="shadow-[0_0_20px_rgba(213,184,147,0.15)] px-8 py-3 rounded-none bg-tan text-space-cadet hover:bg-white hover:text-space-cadet transition-all font-bold tracking-widest text-xs uppercase relative overflow-hidden group"
-        >
-          <span className="relative z-10">+ New Investigation</span>
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-[shimmer_1s_infinite]" />
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/results')}
+            className="px-6 py-3 border-tan/40 text-tan hover:bg-tan/10 hover:border-tan font-bold tracking-widest text-xs uppercase flex items-center gap-2"
+          >
+            <Flame className="w-4 h-4 text-amber-400" />
+            <span>XAI Heatmap</span>
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={() => navigate('/verify')}
+            className="shadow-[0_0_20px_rgba(213,184,147,0.15)] px-8 py-3 rounded-none bg-tan text-space-cadet hover:bg-white hover:text-space-cadet transition-all font-bold tracking-widest text-xs uppercase relative overflow-hidden group"
+          >
+            <span className="relative z-10">+ New Investigation</span>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full group-hover:animate-[shimmer_1s_infinite]" />
+          </Button>
+        </div>
       </section>
 
       {/* Statistics Row (Glassmorphism Cards) */}

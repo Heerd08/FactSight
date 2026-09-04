@@ -19,6 +19,13 @@
     --coffee: #6F4D38;
     --caput-mortuum: #632024;
     
+    --bg-main: #F8FAFC;
+    --text-main: #0F172A;
+    --text-muted: #64748B;
+    --border-subtle: rgba(0, 0, 0, 0.08);
+  }
+
+  html.dark, body.dark {
     --bg-main: var(--space-cadet);
     --text-main: #FFFFFF;
     --text-muted: var(--slate-gray);
@@ -26,6 +33,17 @@
   }
 
   body {
+    background-color: #F8FAFC;
+    color: #0F172A;
+    font-family: var(--font-body);
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  html.dark body,
+  body.dark {
     background-color: var(--space-cadet);
     background-image: radial-gradient(
       circle at top right,
@@ -37,19 +55,11 @@
       rgba(97,120,145,0.08),
       transparent 50%
     );
-    color: var(--text-main);
-    font-family: var(--font-body);
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
+    color: #FFFFFF;
   }
 
   h1, h2, h3, h4, h5, h6, .font-heading {
     font-family: var(--font-heading);
-  }
-
-  * {
-    border-color: var(--border-subtle);
   }
 
   #root {

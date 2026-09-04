@@ -75,6 +75,20 @@ Examine this image with forensic precision:
 3. Synthesize the single core factual claim being asserted by or within this image into clear, normal, unambiguous text suitable for fact-checking.
 4. Detect the primary language of the text/content in the image.
 5. Generate 2-3 clean, high-precision search queries specifically tailored for Tavily Web Search to verify the claim.
+6. Spatial Attention Analysis (CRITICAL for XAI Heatmap Visualization):
+   Identify 3-8 distinct regions in the image that most influenced your forensic verdict.
+   For each region, provide:
+   - A bounding box as percentage coordinates [x1, y1, x2, y2] where each value is 0.0-1.0 representing fraction of image width/height. (0,0) is top-left, (1,1) is bottom-right.
+   - An importance score (0.0-1.0) indicating how much this region influenced the overall verdict.
+   - A category: "manipulated" (edited/doctored/fake elements), "suspicious" (potentially misleading), "verified" (authentic/trusted elements like real logos, watermarks), or "neutral" (background/irrelevant).
+   - A short reason explaining WHY this region is important.
+
+   Examples of regions to identify:
+   - Headline text areas with sensationalist or false claims → "manipulated", high importance
+   - Doctored timestamps, edited usernames, fake verification badges → "manipulated", high importance
+   - Authentic publisher logos, real watermarks, verified account badges → "verified", medium importance
+   - Background scenery, decorative elements → "neutral", low importance
+   - Misleading graph axes, cherry-picked data ranges → "suspicious", high importance
 
 Return a strict JSON object with this exact schema:
 {{
@@ -85,7 +99,16 @@ Return a strict JSON object with this exact schema:
   "extracted_claim": "concise, normalized factual claim statement",
   "detected_language": "English | German | Spanish | French | Hindi | etc.",
   "primary_subject": "main entity or subject",
-  "search_queries": ["query 1", "query 2"]
+  "search_queries": ["query 1", "query 2"],
+  "attention_regions": [
+    {{
+      "region": "human-readable description of region location and content",
+      "importance": 0.0,
+      "category": "manipulated | suspicious | verified | neutral",
+      "reason": "why this region matters for the verdict",
+      "bbox_pct": [0.0, 0.0, 0.0, 0.0]
+    }}
+  ]
 }}
 """
         for model_name in GEMINI_MODELS:
@@ -112,11 +135,11 @@ Return a strict JSON object with this exact schema:
                     data=json.dumps(payload).encode("utf-8"),
                     headers={"Content-Type": "application/json"}
                 )
-                with urllib.request.urlopen(req, timeout=20) as res:
+                with urllib.request.urlopen(req, timeout=30) as res:
                     data = json.loads(res.read().decode("utf-8"))
                     text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
                     parsed = json.loads(text_resp)
-                    logger.info(f"Gemini image forensics ({model_name}) extracted claim: '{parsed.get('extracted_claim')}' | Manipulative: {parsed.get('is_manipulative_visual')}")
+                    logger.info(f"Gemini image forensics ({model_name}) extracted claim: '{parsed.get('extracted_claim')}' | Manipulative: {parsed.get('is_manipulative_visual')} | Attention regions: {len(parsed.get('attention_regions', []))}")
                     return parsed
             except Exception as e:
                 logger.warning(f"Gemini extract_claim_from_image with {model_name} failed: {e}. Trying next model...")
@@ -132,6 +155,7 @@ Return a strict JSON object with this exact schema:
             "detected_language": "English",
             "primary_subject": "Image Submission",
             "search_queries": [],
+            "attention_regions": [],
         }
 
     def translate_social_content_to_claim(
@@ -349,9 +373,11 @@ CRITICAL ARBITRATION & CLASSIFICATION RULES:
 2. PRECISE 4-TIER CLASSIFICATION (KEEP TOKEN IN ENGLISH FOR UI BADGES):
    - "Genuine" (Credibility: 85% - 99%):
      The claim or article is factually accurate, supported by authoritative records, and contains NO deceit, clickbait distortion, or manipulative misrepresentation.
+     CRITICAL: DO NOT mark a generic assertion without geographic/institutional context (e.g., 'schools have holiday on monday', 'banks closed tomorrow', 'trains cancelled') as 'Genuine' just because a single distant municipality or foreign country has a holiday. A blanket claim lacking scope is NOT universally Genuine.
    - "Misleading" (Credibility: 25% - 45%):
      CRITICAL REQUIREMENT: DO NOT classify as "Fake" or "Genuine" if there is partial truth or a real event that has been distorted.
      Classify as "Misleading" if:
+     * Overgeneralization / Missing Scope: An assertion states a blanket claim (e.g., 'schools have holiday on monday', 'flights suspended') when it only applies to specific districts or foreign regions (e.g. US Labor Day), misleading the reader into believing it applies universally or locally.
      * (For URLs): The article headline is clickbait, sensationalized, or asserts a conclusion not backed by the body text; or inflates a local proposal into a nationwide policy.
      * (For Images/Screenshots): The graphic cherry-picks data, distorts chart axes, takes a real image out of its true historical context, or pairs a real photo with a false caption.
      * (For Social Reels/Videos): The video takes real footage out of context, makes sweeping unproven claims from an isolated incident, or exaggerates scientific/economic facts.
@@ -360,9 +386,15 @@ CRITICAL ARBITRATION & CLASSIFICATION RULES:
      The claim is completely fabricated out of thin air, a complete hoax, medical quackery with zero basis, a completely doctored/fabricated screenshot, or an event that never occurred at all.
    - "Unverified" (Credibility: 45% - 55%):
      Future political predictions, unconfirmed election speculation, subjective opinions, or claims lacking sufficient public evidence.
-3. MANIPULATION DETECTION:
-   Identify the precise technique: e.g. "Clickbait / Exaggerated Headline Distortion", "Context Distortion / Selective Framing", "Manipulated Infographic / Deceptive Axes", "Doctored Social Media Screenshot", "Sensationalist Framing", or "None".
-4. MULTILINGUAL EXPLANATION IN USER'S NATIVE LANGUAGE:
+3. EXPLAINABLE AI SPAN EXTRACTION (MANDATORY FOR WORD HEATMAP):
+   You MUST return:
+   - "disputed_phrases": array of exact verbatim substrings from the user's claim that are false, misleading, sensationalized, exaggerated, or factually contradicted by evidence.
+   - "verified_phrases": array of exact verbatim substrings from the user's claim that are factually accurate, true, or corroborated.
+   - "unattributed_phrases": array of exact verbatim substrings from the user's claim that are vague, unsubstantiated, missing crucial geographic context, or unverified rumors.
+   Every entry MUST be an exact verbatim substring present in the user's input claim!
+4. MANIPULATION DETECTION:
+   Identify the precise technique: e.g. "False Generalization / Missing Scope", "Clickbait / Exaggerated Headline Distortion", "Context Distortion / Selective Framing", "Manipulated Infographic / Deceptive Axes", "Doctored Social Media Screenshot", "Sensationalist Framing", or "None".
+5. MULTILINGUAL EXPLANATION IN USER'S NATIVE LANGUAGE:
    The user entered this content in {detected_lang}.
    You MUST write the entire "detailed_explanation" and all items in "key_findings" in fluent, natural, grammatically correct {detected_lang}!
    If {detected_lang} is German, write in German. If French, in French. If Spanish, in Spanish. If Hindi, in Hindi.
@@ -376,7 +408,10 @@ Respond in strict JSON adhering to this schema:
   "is_manipulative": true,
   "manipulation_type": "string describing technique or None",
   "detailed_explanation": "comprehensive multi-paragraph explanation in the user's detected language citing findings and context",
-  "key_findings": ["point 1 in user's language", "point 2 in user's language"]
+  "key_findings": ["point 1 in user's language", "point 2 in user's language"],
+  "disputed_phrases": ["exact phrase from user input that is false or misleading"],
+  "verified_phrases": ["exact phrase from user input that is true"],
+  "unattributed_phrases": ["exact phrase from user input that is vague or missing context"]
 }}
 """
         for model_name in GEMINI_MODELS:
@@ -395,7 +430,13 @@ Respond in strict JSON adhering to this schema:
                     data = json.loads(res.read().decode("utf-8"))
                     text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
                     parsed = json.loads(text_resp)
-                    logger.info(f"Gemini arbiter ({model_name}) complete [{detected_lang}]: {parsed.get('classification')} ({parsed.get('credibility_score_pct')}%)")
+                    if "disputed_phrases" not in parsed:
+                        parsed["disputed_phrases"] = []
+                    if "verified_phrases" not in parsed:
+                        parsed["verified_phrases"] = []
+                    if "unattributed_phrases" not in parsed:
+                        parsed["unattributed_phrases"] = []
+                    logger.info(f"Gemini arbiter ({model_name}) complete [{detected_lang}]: {parsed.get('classification')} ({parsed.get('credibility_score_pct')}%) | Disputed: {parsed.get('disputed_phrases')} | Verified: {parsed.get('verified_phrases')}")
                     return parsed
             except Exception as e:
                 logger.warning(f"Gemini synthesize_fact_check_verdict with {model_name} failed: {e}. Trying next model...")
@@ -440,6 +481,9 @@ Respond in strict JSON adhering to this schema:
                 "credibility_score_pct": holiday_check["credibility_score_pct"],
                 "detailed_explanation": holiday_check["explanation"],
                 "key_findings": [holiday_check["explanation"]],
+                "disputed_phrases": holiday_check.get("disputed_phrases", []),
+                "verified_phrases": holiday_check.get("verified_phrases", []),
+                "unattributed_phrases": holiday_check.get("unattributed_phrases", []),
             }
 
         # Check logical contradiction

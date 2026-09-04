@@ -79,6 +79,10 @@ class AISearchAgent:
                 "direct_ai_summary": explanation,
                 "temporal_grounding": now_ctx["today_full"],
                 "primary_subject": holiday_check["holiday_name"],
+                "disputed_phrases": holiday_check.get("disputed_phrases", []),
+                "suspicious_phrases": holiday_check.get("disputed_phrases", []),
+                "verified_phrases": holiday_check.get("verified_phrases", []),
+                "unattributed_phrases": holiday_check.get("unattributed_phrases", []),
             }
 
         # Step 1: Gemini Pre-Search Analysis & Query Formulation
@@ -163,6 +167,10 @@ class AISearchAgent:
             "gemini_understanding": gemini_understanding,
             "manipulation_type": synthesis_result.get("manipulation_type"),
             "tavily_verification": synthesis_result.get("tavily_verification"),
+            "disputed_phrases": synthesis_result.get("disputed_phrases", []),
+            "suspicious_phrases": synthesis_result.get("disputed_phrases", []),
+            "verified_phrases": synthesis_result.get("verified_phrases", []),
+            "unattributed_phrases": synthesis_result.get("unattributed_phrases", []),
         }
 
     def _execute_single_search(self, search_q: str, max_results: int = 3) -> Tuple[List[Dict[str, Any]], str, Optional[str]]:

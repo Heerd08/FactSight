@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   RefreshCw,
   FileSearch,
-  ArrowRight
+  ArrowRight,
+  Flame
 } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -20,6 +21,7 @@ import EvidenceSection from '../components/results/EvidenceSection';
 import SourceTrust from '../components/results/SourceTrust';
 import AIExplanation from '../components/results/AIExplanation';
 import XAIWordHeatmap from '../components/results/XAIWordHeatmap';
+import XAIImageHeatmap from '../components/results/XAIImageHeatmap';
 import KeyTakeaway from '../components/results/KeyTakeaway';
 import Disclaimer from '../components/results/Disclaimer';
 import LoadingState from '../components/common/LoadingState';
@@ -110,17 +112,29 @@ export default function Verify() {
           </p>
         </div>
 
-        {submittedData && (
+        <div className="flex items-center gap-3">
           <Button
             variant="outline"
             size="sm"
-            icon={RefreshCw}
-            onClick={handleReset}
-            className="self-start sm:self-auto"
+            onClick={() => navigate('/results')}
+            className="border-tan/40 text-tan hover:bg-tan/10 font-bold tracking-wider text-xs uppercase flex items-center gap-1.5"
           >
-            New Verification
+            <Flame className="w-3.5 h-3.5 text-amber-400" />
+            <span>Interactive Heatmap</span>
           </Button>
-        )}
+
+          {submittedData && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={RefreshCw}
+              onClick={handleReset}
+              className="self-start sm:self-auto"
+            >
+              New Verification
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Verification Input Hub */}
@@ -193,11 +207,28 @@ export default function Verify() {
           {/* Key Takeaway Banner */}
           <KeyTakeaway takeaway={analysisResult.keyTakeaway} />
 
+          {/* Visual Attention Heatmap for Image Inputs */}
+          {submittedData.type === 'image' && submittedData.preview && (
+            <XAIImageHeatmap
+              imagePreview={submittedData.preview}
+              attentionRegions={analysisResult.attention_regions || []}
+              classification={analysisResult.classification || 'Genuine'}
+              credibilityScore={analysisResult.credibilityScore || 85}
+              visualDescription={analysisResult.visual_description || ''}
+              isManipulativeVisual={analysisResult.is_manipulative_visual || false}
+            />
+          )}
+
           {/* Interactive Explainable AI (XAI) Word Heatmap */}
           <XAIWordHeatmap
             content={typeof submittedData.content === 'string' ? submittedData.content : (analysisResult.aiExplanation?.mainClaim || '')}
             evidence={analysisResult.evidence || []}
             suspiciousPhrases={analysisResult.suspicious_phrases || []}
+            verifiedPhrases={analysisResult.verified_phrases || []}
+            unattributedPhrases={analysisResult.unattributed_phrases || []}
+            redFlags={analysisResult.red_flags || []}
+            contradictingEvidence={analysisResult.aiExplanation?.contradictingEvidence || []}
+            supportingEvidence={analysisResult.aiExplanation?.supportingEvidence || []}
             classification={analysisResult.classification || 'Genuine'}
             credibilityScore={analysisResult.credibilityScore || 85}
           />

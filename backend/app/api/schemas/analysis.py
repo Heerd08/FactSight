@@ -103,6 +103,14 @@ class AnalyzeResponse(BaseModel):
         default_factory=list,
         description="Detected manipulation techniques (urgency, emotional appeal, spoofing)",
     )
+    verified_phrases: list[str] = Field(
+        default_factory=list,
+        description="Empirically verified or corroborated factual phrases",
+    )
+    unattributed_phrases: list[str] = Field(
+        default_factory=list,
+        description="Unattributed, ambiguous, or uncontextualized phrases",
+    )
     evidence: list[EvidenceItem] = Field(
         default_factory=list,
         description="Verified evidence items retrieved from Database 2 (ChromaDB Vector Store) and Tavily Web Search",

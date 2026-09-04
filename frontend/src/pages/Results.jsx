@@ -20,6 +20,7 @@ import EvidenceSection from '../components/results/EvidenceSection';
 import SourceTrust from '../components/results/SourceTrust';
 import AIExplanation from '../components/results/AIExplanation';
 import XAIWordHeatmap from '../components/results/XAIWordHeatmap';
+import XAIImageHeatmap from '../components/results/XAIImageHeatmap';
 import ClaimBreakdown from '../components/results/ClaimBreakdown';
 import ManipulationIndicators from '../components/results/ManipulationIndicators';
 import MissingContext from '../components/results/MissingContext';
@@ -190,11 +191,28 @@ export default function Results() {
         </div>
       </Card>
 
+      {/* Visual Attention Heatmap for Image Inputs */}
+      {passedData.type === 'image' && passedData.preview && (
+        <XAIImageHeatmap
+          imagePreview={passedData.preview}
+          attentionRegions={result.attention_regions || []}
+          classification={result.classification || 'Genuine'}
+          credibilityScore={result.credibilityScore || 85}
+          visualDescription={result.visual_description || ''}
+          isManipulativeVisual={result.is_manipulative_visual || false}
+        />
+      )}
+
       {/* Interactive Explainable AI (XAI) Word Heatmap */}
       <XAIWordHeatmap
         content={typeof passedData.content === 'string' ? passedData.content : (result.aiExplanation?.mainClaim || '')}
         evidence={result.evidence || []}
         suspiciousPhrases={result.suspicious_phrases || []}
+        verifiedPhrases={result.verified_phrases || []}
+        unattributedPhrases={result.unattributed_phrases || []}
+        redFlags={result.red_flags || []}
+        contradictingEvidence={result.aiExplanation?.contradictingEvidence || []}
+        supportingEvidence={result.aiExplanation?.supportingEvidence || []}
         classification={result.classification || 'Genuine'}
         credibilityScore={result.credibilityScore || 85}
       />

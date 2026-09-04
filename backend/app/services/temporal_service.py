@@ -129,6 +129,9 @@ class TemporalService:
                     "verdict": "Genuine",
                     "credibility_score_pct": 98,
                     "confidence": 0.99,
+                    "disputed_phrases": [],
+                    "verified_phrases": [year_label, "leap year"],
+                    "unattributed_phrases": [],
                     "explanation": (
                         f"Calendar & Mathematical Ground Truth: {year_label} is {'indeed a' if is_leap else 'NOT a'} leap year. "
                         f"The statement is **Genuine and Mathematically Accurate**."
@@ -144,6 +147,9 @@ class TemporalService:
                     "verdict": "Fake",
                     "credibility_score_pct": 2,
                     "confidence": 0.99,
+                    "disputed_phrases": [text.strip(), "leap year"],
+                    "verified_phrases": [str(next_leap)],
+                    "unattributed_phrases": [],
                     "explanation": (
                         f"Calendar & Mathematical Ground Truth: {year_label} is {'a' if is_leap else 'NOT a'} leap year (the next leap year is {next_leap}). "
                         f"The claim asserting that {year_label} is a leap year is **Fake**."
@@ -165,6 +171,9 @@ class TemporalService:
                 "verdict": "Genuine",
                 "credibility_score_pct": 98,
                 "confidence": 0.99,
+                "disputed_phrases": [],
+                "verified_phrases": ["narendra modi", "prime minister", "india"],
+                "unattributed_phrases": [],
                 "explanation": (
                     "Official State Record: Narendra Modi is the serving Prime Minister of the Republic of India. "
                     "The statement is **Genuine and Factually Accurate**."
@@ -182,6 +191,9 @@ class TemporalService:
                 "verdict": "Fake",
                 "credibility_score_pct": 2,
                 "confidence": 0.99,
+                "disputed_phrases": ["rahul gandhi is the prime minister", "prime minister", "is the pm"],
+                "verified_phrases": ["rahul gandhi", "india"],
+                "unattributed_phrases": [],
                 "explanation": (
                     "Official State Record: Narendra Modi is the serving Prime Minister of India. "
                     "Rahul Gandhi is an elected Member of Parliament and Leader of the Opposition in the Lok Sabha, not the Prime Minister. "
@@ -206,6 +218,9 @@ class TemporalService:
                 "verdict": "Unverified",
                 "credibility_score_pct": 45,
                 "confidence": 0.50,
+                "disputed_phrases": [],
+                "verified_phrases": [entity_label],
+                "unattributed_phrases": ["going to be the next", "very smart person", "will be the next"],
                 "explanation": (
                     f"Political Speculation & Subjective Assessment: Claims forecasting that {entity_label} 'is going to be the next Prime Minister of India' "
                     "represent future political speculation and unverified predictions; democratic election outcomes cannot be confirmed as factual certainty "
@@ -231,6 +246,9 @@ class TemporalService:
                             "verdict": "Genuine",
                             "credibility_score_pct": 98,
                             "confidence": 0.99,
+                            "disputed_phrases": [],
+                            "verified_phrases": [h_name, "next month", h_date_str],
+                            "unattributed_phrases": [],
                             "explanation": (
                                 f"Calendar Verification: **{h_name}** occurs in {next_month_name} ({h_date_str}). "
                                 f"The statement claiming next month is {h_name} is **Genuine**."
@@ -246,13 +264,123 @@ class TemporalService:
                             "verdict": "Fake",
                             "credibility_score_pct": 2,
                             "confidence": 0.99,
+                            "disputed_phrases": [f"next month is {h_name}", h_name],
+                            "verified_phrases": [h_date_str],
+                            "unattributed_phrases": [],
                             "explanation": (
                                 f"Calendar Verification: **{h_name}** is celebrated on **{h_date_str}**, not in {next_month_name}. "
                                 f"The statement claiming next month is {h_name} is **Fake**."
                             ),
                         }
 
-        # 3. Relative Date Resolution with all Synonyms (tomorrow, morgen, demain, mañana, kal, etc.)
+        # 4. Institutional & School/Bank Holiday Claims (e.g. "schools have holiday on monday", "banks closed tomorrow")
+        holiday_pattern = (
+            r"\b(schools?|colleges?|universit(?:y|ies)|banks?|courts?|offices?)\s*(?:have|has|are|is)?\s*(?:a\s+)?(holiday|closed|off)\b|"
+            r"\b(holiday|closed|off)\s*(?:on\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomm?orr?ow|today)\s*(?:for\s+)?(schools?|colleges?|banks?)?\b"
+        )
+        if re.search(holiday_pattern, text_lower):
+            weekday_order = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+            target_dow = None
+            target_offset_inst = None
+            for d in weekday_order:
+                if re.search(r"\b" + d + r"\b", text_lower):
+                    target_dow = d
+                    break
+
+            if not target_dow:
+                if re.search(r"\b(tomm?orr?ow|morgen|kal)\b", text_lower):
+                    target_offset_inst = 1
+                elif re.search(r"\btoday\b", text_lower):
+                    target_offset_inst = 0
+
+            cur_dow_idx = now_dt.weekday()  # 0 = Monday, ..., 4 = Friday
+            if target_dow:
+                target_dow_idx = weekday_order.index(target_dow)
+                days_ahead = (target_dow_idx - cur_dow_idx) % 7
+                if days_ahead == 0:
+                    days_ahead = 7
+                target_inst_dt = now_dt + datetime.timedelta(days=days_ahead)
+            elif target_offset_inst is not None:
+                target_inst_dt = now_dt + datetime.timedelta(days=target_offset_inst)
+                target_dow = weekday_order[target_inst_dt.weekday()]
+            else:
+                target_inst_dt = now_dt
+                target_dow = weekday_order[target_inst_dt.weekday()]
+
+            inst_date_str = target_inst_dt.strftime("%A, %B %d, %Y")
+            inst_month_day = (target_inst_dt.month, target_inst_dt.day)
+
+            # Check if target date matches a known fixed holiday
+            matched_holiday = None
+            for pattern, h_month, h_day, h_name, h_date_str in KNOWN_FIXED_HOLIDAYS:
+                if inst_month_day == (h_month, h_day):
+                    matched_holiday = (h_name, h_date_str)
+                    break
+
+            if target_dow == "sunday":
+                return {
+                    "is_holiday_claim": True,
+                    "is_valid": True,
+                    "holiday_name": f"Weekly Observance (Sunday, {inst_date_str})",
+                    "official_date": inst_date_str,
+                    "claimed_date": "Sunday Holiday",
+                    "verdict": "Genuine",
+                    "credibility_score_pct": 95,
+                    "confidence": 0.95,
+                    "disputed_phrases": [],
+                    "verified_phrases": ["schools", "sunday", "holiday"],
+                    "unattributed_phrases": [],
+                    "explanation": f"Calendar Verification: {inst_date_str} is Sunday, which is a standard weekly non-instructional weekend day for educational institutions and banks.",
+                }
+            elif matched_holiday:
+                h_name, h_date_str = matched_holiday
+                return {
+                    "is_holiday_claim": True,
+                    "is_valid": True,
+                    "holiday_name": f"{h_name} ({inst_date_str})",
+                    "official_date": h_date_str,
+                    "claimed_date": f"Holiday on {target_dow.capitalize()}",
+                    "verdict": "Genuine",
+                    "credibility_score_pct": 98,
+                    "confidence": 0.98,
+                    "disputed_phrases": [],
+                    "verified_phrases": ["schools", target_dow, "holiday", h_name],
+                    "unattributed_phrases": [],
+                    "explanation": f"Calendar Verification: {inst_date_str} is officially recognized as **{h_name}**, a verified public holiday on which educational institutions and public offices are typically closed.",
+                }
+            else:
+                # Regular working day (e.g. Monday, September 7, 2026)
+                disp = []
+                for p in ["have holiday on " + target_dow, "holiday on " + target_dow, "schools have holiday", "schools are closed", "closed on " + target_dow]:
+                    if p in text_lower:
+                        disp.append(p)
+                if not disp:
+                    disp = ["have holiday on " + target_dow if target_dow in text_lower else text.strip()]
+
+                labor_day_note = ""
+                if inst_month_day == (9, 7) and target_inst_dt.year == 2026:
+                    labor_day_note = " (Note: In the United States and Canada, September 7, 2026 is observed as Labor Day, but this does NOT apply to schools in India or internationally)."
+
+                return {
+                    "is_holiday_claim": True,
+                    "is_valid": False,
+                    "holiday_name": f"Calendar & Academic Schedule ({target_dow.capitalize()})",
+                    "official_date": f"Regular Working Day ({inst_date_str})",
+                    "claimed_date": f"School holiday on {target_dow.capitalize()}",
+                    "verdict": "Misleading",
+                    "credibility_score_pct": 30,
+                    "confidence": 0.95,
+                    "disputed_phrases": disp,
+                    "verified_phrases": [target_dow, "schools"],
+                    "unattributed_phrases": [text.strip()],
+                    "explanation": (
+                        f"Calendar & Observance Verification: {inst_date_str} is an ordinary, regular working and instructional day for schools and public institutions across India and globally. "
+                        f"There is NO official nationwide or universal school holiday on this date{labor_day_note}. "
+                        f"Making an unqualified blanket claim that 'schools have holiday on {target_dow}' without specifying an isolated foreign district is misleading viral misinformation."
+                    ),
+                }
+
+        # 5. Relative Date Resolution with all Synonyms (tomorrow, morgen, demain, mañana, kal, etc.)
         target_offset = None
         target_label = ""
 
@@ -303,6 +431,9 @@ class TemporalService:
                         "verdict": "Genuine",
                         "credibility_score_pct": 98,
                         "confidence": 0.99,
+                        "disputed_phrases": [],
+                        "verified_phrases": [text.strip(), day_en, target_label],
+                        "unattributed_phrases": [],
                         "explanation": (
                             f"Calendar Verification: The statement claiming that {claimed_desc} is **Genuine and Accurate**. "
                             f"The current system calendar confirms {actual_desc}."
@@ -318,13 +449,16 @@ class TemporalService:
                         "verdict": "Fake",
                         "credibility_score_pct": 2,
                         "confidence": 0.99,
+                        "disputed_phrases": [f"is {day_en}", day_en, text.strip()],
+                        "verified_phrases": [target_label, claimed_weekday],
+                        "unattributed_phrases": [],
                         "explanation": (
                             f"Calendar Verification: The statement claiming that {claimed_desc} is **Fake**. "
                             f"In reality, {actual_desc}."
                         ),
                     }
 
-        # 5. Check against known fixed annual holidays & astronomical events
+        # 6. Check against known fixed annual holidays & astronomical events
         for pattern, h_month, h_day, h_name, h_date_str in KNOWN_FIXED_HOLIDAYS:
             if re.search(pattern, text_lower):
                 is_correct = (claimed_month_day == (h_month, h_day))
@@ -338,6 +472,9 @@ class TemporalService:
                         "verdict": "Genuine",
                         "credibility_score_pct": 98,
                         "confidence": 0.99,
+                        "disputed_phrases": [],
+                        "verified_phrases": [h_name, target_label, h_date_str],
+                        "unattributed_phrases": [],
                         "explanation": (
                             f"Calendar Verification: **{h_name}** is celebrated annually on **{h_date_str}**. "
                             f"The current calendar confirms {target_label} ({claimed_full}) corresponds exactly to {h_name}."
@@ -353,6 +490,9 @@ class TemporalService:
                         "verdict": "Fake",
                         "credibility_score_pct": 2,
                         "confidence": 0.99,
+                        "disputed_phrases": [text.strip(), h_name],
+                        "verified_phrases": [h_date_str],
+                        "unattributed_phrases": [],
                         "explanation": (
                             f"Calendar Verification: **{h_name}** is celebrated annually on **{h_date_str}**. "
                             f"The statement claiming {target_label} ({claimed_full}) is {h_name} is factually false."

@@ -68,13 +68,13 @@ export default function History() {
 
   return (
     <div className="space-y-6 pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/60">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-200 dark:border-slate-gray/20">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 dark:text-white tracking-tight">
             Analysis History
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Review past verifications, scores, and RAG evidence audits.
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-gray mt-1">
+            Review past verifications, credibility scores, and RAG evidence audits.
           </p>
         </div>
 
@@ -84,7 +84,7 @@ export default function History() {
             size="sm"
             icon={Trash2}
             onClick={handleClearHistory}
-            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 self-start sm:self-auto"
+            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 self-start sm:self-auto"
           >
             Clear History
           </Button>
@@ -100,7 +100,7 @@ export default function History() {
             placeholder="Search past verification queries..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-[#1C273B] text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-white/10 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-tan/30 transition-colors"
           />
         </div>
       )}
@@ -108,7 +108,7 @@ export default function History() {
       {/* History Table */}
       {filtered.length > 0 ? (
         <Card padding="p-0" className="overflow-hidden">
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-white/10">
             {filtered.map((item) => (
               <div
                 key={item.id}
@@ -119,29 +119,29 @@ export default function History() {
                     navigate('/dashboard');
                   }
                 }}
-                className="p-4 sm:p-5 hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-4 cursor-pointer"
+                className="p-4 sm:p-5 hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors flex items-center justify-between gap-4 cursor-pointer"
               >
                 <div className="space-y-1 flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono font-semibold text-slate-400">{item.id}</span>
+                    <span className="text-[11px] font-mono font-semibold text-slate-400 dark:text-slate-500">{item.id}</span>
                     <Badge variant={getBadgeVariant(item.classification)} size="sm">
                       {item.classification}
                     </Badge>
-                    <span className="text-[11px] text-slate-400 hidden sm:inline">• {item.timestamp}</span>
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:inline">• {item.timestamp}</span>
                   </div>
-                  <h4 className="text-xs sm:text-sm font-semibold text-slate-800 truncate">
+                  <h4 className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
                     {item.title}
                   </h4>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right">
-                    <span className="text-xs sm:text-sm font-mono font-extrabold text-slate-800">
+                    <span className="text-xs sm:text-sm font-mono font-extrabold text-slate-800 dark:text-tan">
                       {item.credibilityScore}
                     </span>
-                    <span className="text-[10px] text-slate-400 block font-medium">Score</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block font-medium">Score</span>
                   </div>
-                  <ArrowUpRight className="w-4 h-4 text-slate-400" />
+                  <ArrowUpRight className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                 </div>
               </div>
             ))}

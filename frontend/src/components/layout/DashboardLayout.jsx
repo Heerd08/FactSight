@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { isDark } = useTheme();
 
   return (
-    <div className="min-h-screen bg-space-cadet flex">
+    <div className={`min-h-screen flex transition-colors duration-300 ${
+      isDark ? 'bg-space-cadet text-white' : 'bg-slate-50 text-slate-900'
+    }`}>
       {/* Sidebar Navigation */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 

@@ -738,4 +738,3 @@ def build_factsight_report(content: str, content_type: str = "text") -> FactSigh
         claimsBreakdown=claims_breakdown,
         manipulationIndicators=manipulation_indicators,
     )
-
