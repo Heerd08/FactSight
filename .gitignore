@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment files
+.env
+.env.*
+
+# Tests with keys or local scratch
+backend/tests/test_*.py
+scratch/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# ML Models & Checkpoints
+ml/models/*/
+ml/models/*.bin
+ml/models/*.safetensors
+!ml/models/.gitkeep
+
+# Hugging Face cache
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Dependencies
+node_modules/
+
+# Datasets and Media
+*.jsonl
+*.pdf
+*.jpeg
+*.jpg
+*.png
